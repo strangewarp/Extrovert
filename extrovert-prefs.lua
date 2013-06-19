@@ -452,10 +452,26 @@ return {
 	-- DO NOT CHANGE. Table of references and args that joins the command names to their corresponding functions.
 	cmdfunctions = {
 	
-		NAVIGATE_UP = { "movePointer", -1 },
-		NAVIGATE_DOWN = { "movePointer", 1 },
+		NAVIGATE_UP = { "moveToRelativePoint", -1 },
+		NAVIGATE_DOWN = { "moveToRelativePoint", 1 },
 		NAVIGATE_HOME = { "moveToPoint", 1 },
-		NAVIGATE_INVERSE = { "moveToInversePoint", 1},
+		NAVIGATE_INVERSE = { "moveToInversePoint" },
+		
+		
+		
+		UNDO = { "undo" },
+		REDO = { "redo" },
+		
+		SET_COPY_POINT_1 = { "setUpperCopyPoint" },
+		SET_COPY_POINT_2 = { "setLowerCopyPoint" },
+		CUT = { "cutSequence" },
+		COPY = { "copySequence" },
+		PASTE = { "pasteSequence" },
+		
+		NOTE_DELETE = { "deleteCurrentNote" },
+		
+		SPACE_INSERT = { "addSpaceToSequence" },
+		SPACE_DELETE = { "deleteSpaceFromSequence" },
 		
 		
 		

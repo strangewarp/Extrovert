@@ -609,8 +609,122 @@ end
 
 
 
--- Move the editor's notepointer and tickpointer to a different note or tick in the active sequence
-function Extrovert:movePointer(spaces)
+-- Add a number of ticks to the active sequence equal to the current spacing*quantization values
+function Extrovert:addSpaceToSequence()
+
+	for i = 1, self.spacing * self.quant do
+		table.insert(self.seq[self.key].tick, self.pointer, {})
+	end
+	
+	self.notepointer = 1
+	
+	pd.post("Tick " .. self.pointer)
+	pd.post("Inserted " .. (self.spacing * self.quant) .. " empty ticks")
+	
+	self:updateMainEditorColumn()
+
+end
+
+-- Remove a number of ticks from the active sequence equal to the current spacing*quantization values, provided the result isn't smaller than the Monome's width
+function Extrovert:deleteSpaceFromSequence()
+
+	if (#self.seq[self.key].tick - (self.spacing * self.quant)) >= self.gridx then
+	
+		-- Compensate for cases where the pointer is far along enough in the sequence that ticks from the sequence's start will be removed as well
+		if self.pointer > (#self.seq[self.key].tick - (self.spacing * self.quant)) then
+		
+			for i = 1, self.pointer - (#self.seq[self.key].tick - (self.spacing * self.quant)) do
+				table.insert(self.seq[self.key].tick, #self.seq[self.key].tick, table.remove(self.seq[self.key].tick, 1))
+				self.pointer = self.pointer - 1
+			end
+			
+		end
+		
+		-- Remove the ticks from the active sequence
+		for i = 1, self.spacing * self.quant do
+			table.remove(self.seq[self.key].tick, self.pointer)
+		end
+		
+		if self.pointer > #self.seq[self.key].tick then
+			self.pointer = #self.seq[self.key].tick
+		end
+		
+		pd.post("Tick " .. self.pointer)
+		pd.post("Removed " .. (self.spacing * self.quant) .. " ticks")
+		
+		self:updateMainEditorColumn()
+
+	else
+	
+		pd.post("Sequence must always contain at least " .. self.gridx .. " ticks!")
+		pd.post("Could not delete " .. (self.spacing * self.quant) .. "ticks from the sequence.")
+	
+	end
+	
+end
+
+-- Delete the note at the current notepointer, in the current tick, within the current sequence, if applicable
+function Extrovert:deleteCurrentNote()
+
+	if self.seq[self.key].tick[self.pointer][self.notepointer] ~= nil then
+	
+		local reportnote = table.remove(self.seq[self.key].tick[self.pointer], self.notepointer)
+		local oldpoint = self.notepointer
+		
+		if (self.seq[self.key].tick[self.pointer][self.notepointer] ~= nil)
+		and (self.notepointer > 1)
+		then
+			self.notepointer = self.notepointer - 1
+		end
+	
+		pd.post("Tick " .. self.pointer .. " - Point " .. oldpoint)
+		pd.post("Removed note: " .. table.concat(reportnote, " "))
+		
+		self:updateMainEditorColumn()
+		
+	else
+	
+		pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+		pd.post("No notes to delete!")
+		
+	end
+
+end
+
+-- Move the editor's pointer to a given point in the active sequence
+function Extrovert:moveToPoint(p)
+
+	if self.seq[self.key].tick[p][1] ~= nil then
+		self.pointer = p
+	end
+	
+	if (self.seq[self.key].tick[self.pointer][1] == nil)
+	or (not rangeCheck(self.notepointer, 1, #self.seq[self.key].tick[self.pointer]))
+	then
+		self.notepointer = 1
+	end
+
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updateMainEditorColumn()
+	
+end
+
+-- Move the editor's pointer to the inverse tick of the active sequence, bounded by the current quantization value
+function Extrovert:moveToInversePoint()
+
+	local qticks = math.floor(#self.seq[self.key].tick / self.quant)
+	
+	self.pointer = (((self.pointer + math.floor(qticks / 2)) - 1) % #self.seq[self.key].tick) + 1
+
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updateMainEditorColumn()
+	
+end
+
+-- Move the editor's notepointer and tickpointer to a different note or tick in the active sequence, based on a relative direction from the current note
+function Extrovert:moveToRelativePoint(spaces)
 
 	local direction = math.min(1, math.max(-1, spaces))
 	
@@ -625,7 +739,7 @@ function Extrovert:movePointer(spaces)
 			self.pointer = (((self.pointer + (self.quant * direction)) - 1) % #self.seq[self.key].tick) + 1
 			
 			if self.notepointer == 0 then
-				self.notepointer = math.max(1, #self.seq[self.key].tick[self.pointer])
+				self.notepointer = #self.seq[self.key].tick[self.pointer]
 			else
 				self.notepointer = 1
 			end
@@ -822,6 +936,8 @@ function Extrovert:initialize(sel, atoms)
 	self.tick = 1 -- Current microtime tick in the sequencer
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
+	
+	self.pageheld = false -- Track the up-down keystrokes on the page buttons, in order to apply other effects to the pages' entire contents when said buttons are held down
 	
 	self.offbutton = false
 	self.gatebutton = false
