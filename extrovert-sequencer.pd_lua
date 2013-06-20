@@ -20,6 +20,25 @@ local function rangeCheck(val, low, high)
 
 end
 
+-- Recursively copy all sub-tables and sub-items, when copying from one table to another. Invoke as: newtable = deepCopy(oldtable, {})
+local function deepCopy(t, t2)
+
+	for k, v in pairs(t) do
+	
+		if type(v) ~= "table" then
+			t2[k] = v
+		else
+			local temp = {}
+			deepCopy(v, temp)
+			t2[k] = temp
+		end
+		
+	end
+	
+	return t2
+	
+end
+
 
 
 -- Make a hash-table that keys computer-piano-keyboard keycommands to their corresponding number values, and which allows for multiple keycommands to overlap a single value
@@ -609,6 +628,96 @@ end
 
 
 
+-- Revert internal variables to the previous state held in the self.history table, if any older states exist
+function Extrovert:undo()
+
+	if self.undopoint > 1 then
+	
+		self.undopoint = self.undopoint - 1
+	
+		for k, v in pairs(self.history[self.undopoint]) do
+			if type(v) == "table" then
+				self[k] = deepCopy(v, {})
+			else
+				self[k] = v
+			end
+		end
+		
+		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
+		
+		self:updateEditorPanel()
+		self:updateControlTiles()
+	
+	else
+	
+		pd.post("Cannot undo! Bottom of history table has been reached!")
+	
+	end
+
+end
+
+-- Change internal variables to the next state in the self.history table, if applicable
+function Extrovert:redo()
+
+	if (#self.history ~= nil)
+	and (self.undopoint < #self.history)
+	then
+	
+		self.undopoint = self.undopoint + 1
+		
+		for k, v in pairs(self.history[self.undopoint]) do
+			if type(v) == "table" then
+				self[k] = deepCopy(v, {})
+			else
+				self[k] = v
+			end
+		end
+		
+		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
+		
+		self:updateEditorPanel()
+		self:updateControlTiles()
+	
+	else
+	
+		pd.post("Cannot redo! Top of history table has been reached!")
+	
+	end
+
+end
+
+-- Insert a set of recently-changed variables into a new entry in the history table
+function Extrovert:addStatesToUndoTable(...)
+
+	if #self.history ~= nil then
+	
+		-- If self.undopoint is less than the number of items in self.history, remove all items ahead of the self.undopoint index
+		if self.undopoint < #self.history then
+			for i = self.undopoint + 1, #self.history do
+				table.remove(self.history, self.undopoint)
+			end
+		end
+	
+		-- If the history table has reached the maximum undo depth, then remove the oldest item
+		if #self.history == self.undodepth then
+			table.remove(self.history, 1)
+			self.undopoint = self.undodepth
+		else
+			self.undopoint = #self.history + 1
+		end
+		
+	end
+	
+	-- Copy over all given variables to the history table's most recent index
+	self.history[self.undopoint] = {}
+	for k, v in pairs(...) do
+		self.history[self.undopoint][k] = deepCopy(v, {})
+	end
+
+end
+
+
+
 -- Add a number of ticks to the active sequence equal to the current spacing*quantization values
 function Extrovert:addSpaceToSequence()
 
@@ -620,6 +729,10 @@ function Extrovert:addSpaceToSequence()
 	
 	pd.post("Tick " .. self.pointer)
 	pd.post("Inserted " .. (self.spacing * self.quant) .. " empty ticks")
+	
+	self:addStatesToUndoTable(
+		["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
+	)
 	
 	self:updateMainEditorColumn()
 
@@ -652,6 +765,10 @@ function Extrovert:deleteSpaceFromSequence()
 		pd.post("Tick " .. self.pointer)
 		pd.post("Removed " .. (self.spacing * self.quant) .. " ticks")
 		
+		self:addStatesToUndoTable(
+			["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
+		)
+
 		self:updateMainEditorColumn()
 
 	else
@@ -680,6 +797,10 @@ function Extrovert:deleteCurrentNote()
 		pd.post("Tick " .. self.pointer .. " - Point " .. oldpoint)
 		pd.post("Removed note: " .. table.concat(reportnote, " "))
 		
+		self:addStatesToUndoTable(
+			["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
+		)
+
 		self:updateMainEditorColumn()
 		
 	else
@@ -908,6 +1029,10 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.gridx = self.prefs.monome.width -- Monome X buttons
 	self.gridy = self.prefs.monome.height -- Monome Y buttons
+	
+	self.history = {} -- Tracks all changes, for the undo/redo functions to act upon
+	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold
+	self.undopoint = 1 -- Current point in the history table (advanced by redo, decreased by undo)
 	
 	self.kb = { -- Keeps track of which keys are currently pressed on the computer-keyboard
 		shift = false, -- Shift and Tab get special status, as they are potential bases for keychords, and thus treated somewhat differently
