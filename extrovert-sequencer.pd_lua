@@ -479,9 +479,12 @@ function Extrovert:updateEditorColumn(x)
 
 	local cols = self.prefs.gui.editor.cols
 	local rows = self.prefs.gui.editor.rows
+
+	local xcenter = math.ceil((self.prefs.gui.editor.cols - 1) / 2)
 	local ycenter = math.floor((rows - 1) / 2)
 	
-	local ticks = self.seq[self.key].tick
+	-- Offset the ticks table accordingly, for all visible-but-non-active sequences
+	local ticks = self.seq[((((self.key + x) - xcenter) - 1) % #self.seq) + 1].tick
 
 	local visibleitems = {}
 	
@@ -628,25 +631,39 @@ end
 
 
 
--- Revert internal variables to the previous state held in the self.history table, if any older states exist
+-- Move the positions of the tick-pointer and note-pointer to valid indexes
+function Extrovert:normalizePointers()
+
+	if self.pointer > #self.seq[self.key].tick then
+		self.pointer = #self.seq[self.key].tick
+	end
+	
+	if (self.seq[self.key].tick[self.pointer][1] == nil)
+	or (self.notepointer > #self.seq[self.key].tick[self.pointer])
+	then
+		self.notepointer = 1
+	end
+
+end
+
+-- Revert internal variables to the previous state in the self.history table, if any older states exist
 function Extrovert:undo()
 
 	if self.undopoint > 1 then
 	
-		self.undopoint = self.undopoint - 1
-	
-		for k, v in pairs(self.history[self.undopoint]) do
-			if type(v) == "table" then
-				self[k] = deepCopy(v, {})
-			else
-				self[k] = v
-			end
+		if type(self.history[self.undopoint][2]) == "table" then
+			self[self.history[self.undopoint][1]] = deepCopy(self.history[self.undopoint][2], {})
+		else
+			self[self.history[self.undopoint][1]] = self.history[self.undopoint][2]
 		end
 		
+		self.undopoint = self.undopoint - 1
+	
 		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
 		
+		self:normalizePointers()
+		
 		self:updateEditorPanel()
-		self:updateControlTiles()
 	
 	else
 	
@@ -659,24 +676,23 @@ end
 -- Change internal variables to the next state in the self.history table, if applicable
 function Extrovert:redo()
 
-	if (#self.history ~= nil)
+	if (self.history[1] ~= nil)
 	and (self.undopoint < #self.history)
 	then
 	
 		self.undopoint = self.undopoint + 1
 		
-		for k, v in pairs(self.history[self.undopoint]) do
-			if type(v) == "table" then
-				self[k] = deepCopy(v, {})
-			else
-				self[k] = v
-			end
+		if type(self.history[self.undopoint][2]) == "table" then
+			self[self.history[self.undopoint][1]] = deepCopy(self.history[self.undopoint][2], {})
+		else
+			self[self.history[self.undopoint][1]] = self.history[self.undopoint][2]
 		end
 		
 		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
 		
+		self:normalizePointers()
+		
 		self:updateEditorPanel()
-		self:updateControlTiles()
 	
 	else
 	
@@ -687,9 +703,15 @@ function Extrovert:redo()
 end
 
 -- Insert a set of recently-changed variables into a new entry in the history table
-function Extrovert:addStatesToUndoTable(...)
+function Extrovert:addStatesToUndoTable(index, contents)
 
-	if #self.history ~= nil then
+	-- If the history table is empty (at startup, or after file-load), create a dummy item at index 1 so the rest of the history functions don't wig out
+	if self.history[1] == nil then
+	
+		self.history[1] = { "temp", "temp" }
+		self.undopoint = 2
+		
+	else
 	
 		-- If self.undopoint is less than the number of items in self.history, remove all items ahead of the self.undopoint index
 		if self.undopoint < #self.history then
@@ -697,23 +719,25 @@ function Extrovert:addStatesToUndoTable(...)
 				table.remove(self.history, self.undopoint)
 			end
 		end
-	
+
 		-- If the history table has reached the maximum undo depth, then remove the oldest item
 		if #self.history == self.undodepth then
 			table.remove(self.history, 1)
 			self.undopoint = self.undodepth
-		else
+		else -- If none of the special cases apply, increase self.undodepth to the next index
 			self.undopoint = #self.history + 1
 		end
 		
 	end
 	
-	-- Copy over all given variables to the history table's most recent index
-	self.history[self.undopoint] = {}
-	for k, v in pairs(...) do
-		self.history[self.undopoint][k] = deepCopy(v, {})
+	-- Ensure that tables are duplicated, rather than references
+	if type(contents) == "table" then
+		contents = deepCopy(contents, {})
 	end
-
+	
+	-- Copy over all given variables to the history table's most recent index
+	self.history[self.undopoint] = {index, contents}
+	
 end
 
 
@@ -721,18 +745,16 @@ end
 -- Add a number of ticks to the active sequence equal to the current spacing*quantization values
 function Extrovert:addSpaceToSequence()
 
-	for i = 1, self.spacing * self.quant do
+	self:addStatesToUndoTable("seq[" .. self.key .. "].tick", self.seq[self.key].tick)
+	
+	for i = 1, self.gridx * self.spacing * self.quant do
 		table.insert(self.seq[self.key].tick, self.pointer, {})
 	end
 	
 	self.notepointer = 1
 	
 	pd.post("Tick " .. self.pointer)
-	pd.post("Inserted " .. (self.spacing * self.quant) .. " empty ticks")
-	
-	self:addStatesToUndoTable(
-		["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
-	)
+	pd.post("Inserted " .. (self.gridx * self.spacing * self.quant) .. " empty ticks")
 	
 	self:updateMainEditorColumn()
 
@@ -741,10 +763,12 @@ end
 -- Remove a number of ticks from the active sequence equal to the current spacing*quantization values, provided the result isn't smaller than the Monome's width
 function Extrovert:deleteSpaceFromSequence()
 
-	if (#self.seq[self.key].tick - (self.spacing * self.quant)) >= self.gridx then
+	if (#self.seq[self.key].tick - (self.gridx * self.spacing * self.quant)) >= self.gridx then
 	
+		self:addStatesToUndoTable("seq[" .. self.key .. "].tick", self.seq[self.key].tick)
+
 		-- Compensate for cases where the pointer is far along enough in the sequence that ticks from the sequence's start will be removed as well
-		if self.pointer > (#self.seq[self.key].tick - (self.spacing * self.quant)) then
+		if self.pointer > (#self.seq[self.key].tick - (self.gridx * self.spacing * self.quant)) then
 		
 			for i = 1, self.pointer - (#self.seq[self.key].tick - (self.spacing * self.quant)) do
 				table.insert(self.seq[self.key].tick, #self.seq[self.key].tick, table.remove(self.seq[self.key].tick, 1))
@@ -758,17 +782,11 @@ function Extrovert:deleteSpaceFromSequence()
 			table.remove(self.seq[self.key].tick, self.pointer)
 		end
 		
-		if self.pointer > #self.seq[self.key].tick then
-			self.pointer = #self.seq[self.key].tick
-		end
+		self:normalizePointers()
 		
 		pd.post("Tick " .. self.pointer)
-		pd.post("Removed " .. (self.spacing * self.quant) .. " ticks")
+		pd.post("Removed " .. (self.gridx * self.spacing * self.quant) .. " ticks")
 		
-		self:addStatesToUndoTable(
-			["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
-		)
-
 		self:updateMainEditorColumn()
 
 	else
@@ -785,10 +803,12 @@ function Extrovert:deleteCurrentNote()
 
 	if self.seq[self.key].tick[self.pointer][self.notepointer] ~= nil then
 	
+		self:addStatesToUndoTable("seq[" .. self.key .. "].tick", self.seq[self.key].tick)
+
 		local reportnote = table.remove(self.seq[self.key].tick[self.pointer], self.notepointer)
 		local oldpoint = self.notepointer
 		
-		if (self.seq[self.key].tick[self.pointer][self.notepointer] ~= nil)
+		if (self.seq[self.key].tick[self.pointer][self.notepointer] == nil)
 		and (self.notepointer > 1)
 		then
 			self.notepointer = self.notepointer - 1
@@ -797,10 +817,6 @@ function Extrovert:deleteCurrentNote()
 		pd.post("Tick " .. self.pointer .. " - Point " .. oldpoint)
 		pd.post("Removed note: " .. table.concat(reportnote, " "))
 		
-		self:addStatesToUndoTable(
-			["seq[" .. self.key .. "].tick"] = self.seq[self.key].tick,
-		)
-
 		self:updateMainEditorColumn()
 		
 	else
@@ -867,6 +883,10 @@ function Extrovert:moveToRelativePoint(spaces)
 			
 		end
 		
+		if self.notepointer == 0 then
+			self.notepointer = 1
+		end
+		
 	end
 	
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
@@ -875,8 +895,25 @@ function Extrovert:moveToRelativePoint(spaces)
 	
 end
 
+-- Move the editor's sequence-pointer to a different sequence, based on relative direction from the current sequence
+function Extrovert:moveToRelativeKey(spaces)
+
+	self.key = (((self.key - 1) + spaces) % #self.seq) + 1
+	
+	self:normalizePointers()
+	
+	pd.post("Sequence " .. self.key)
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updatePagePanel()
+	self:updateEditorPanel()
+	
+end
+
 -- Send a note from the computer-keyboard-piano to the relevant sequence
 function Extrovert:parsePianoNote(note)
+
+	self:addStatesToUndoTable("seq[" .. self.key .. "].tick[" .. self.pointer .. "]", self.seq[self.key].tick[self.pointer])
 
 	note = note + (self.octave * 12)
 	while note > 127 do -- Cull back out-of-bounds note values to a valid octave
@@ -1031,7 +1068,7 @@ function Extrovert:initialize(sel, atoms)
 	self.gridy = self.prefs.monome.height -- Monome Y buttons
 	
 	self.history = {} -- Tracks all changes, for the undo/redo functions to act upon
-	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold
+	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold.
 	self.undopoint = 1 -- Current point in the history table (advanced by redo, decreased by undo)
 	
 	self.kb = { -- Keeps track of which keys are currently pressed on the computer-keyboard
@@ -1052,6 +1089,7 @@ function Extrovert:initialize(sel, atoms)
 	self.velocity = 127 -- Current velocity in the editor
 	self.duration = 24 -- Current duration in the editor
 	
+	self.spacing = 12 -- Spacing between notes, in ticks, when notes are entered
 	self.quant = 24 -- Current quantization value (1 = tick, 3 = thirtysecond note, 6 = sixteenth note, 12 = eighth note, 24 = quarter note, 48 = half note, 96 = whole note, etc.)
 	
 	self.friendlyview = true -- Boolean to track friendly-note-view mode in the editor: true for friendly view; false for hacker view

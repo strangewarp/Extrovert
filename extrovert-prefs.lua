@@ -151,9 +151,10 @@ return {
 		},
 		
 		UNDO = {
-			"Shift",
-			"Tab",
-			"Z",
+			"Insert",
+			--"Shift",
+			--"Tab",
+			--"Z",
 		},
 		
 		REDO = {
@@ -463,7 +464,8 @@ return {
 		NAVIGATE_HOME = { "moveToPoint", 1 },
 		NAVIGATE_INVERSE = { "moveToInversePoint" },
 		
-		
+		KEY_PREV = { "moveToRelativeKey", -1 },
+		KEY_NEXT = { "moveToRelativeKey", 1 },
 		
 		UNDO = { "undo" },
 		REDO = { "redo" },
