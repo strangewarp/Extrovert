@@ -151,10 +151,9 @@ return {
 		},
 		
 		UNDO = {
-			"Insert",
-			--"Shift",
+			"Shift",
 			--"Tab",
-			--"Z",
+			"Z",
 		},
 		
 		REDO = {
@@ -375,12 +374,12 @@ return {
 		
 		SHIFT_VELOCITY_DOWN = {
 			"Shift",
-			"Z",
+			"N",
 		},
 		
 		SHIFT_VELOCITY_UP = {
 			"Shift",
-			"X",
+			"B",
 		},
 		
 		SHIFT_ALL_CHANNELS_DOWN = {
