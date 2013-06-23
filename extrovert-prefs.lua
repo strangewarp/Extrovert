@@ -47,7 +47,7 @@ return {
 	
 	undo = {
 	
-		depth = 50, -- Number of steps that the undo-function is capable of reversing. Note: a very large number of steps may cause lag.
+		depth = 20, -- Number of steps that the undo-function is capable of reversing. Note: a very large number of steps may cause lag.
 	
 	},
 
