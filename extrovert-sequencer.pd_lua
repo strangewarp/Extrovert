@@ -39,25 +39,22 @@ local function deepCopy(t, t2)
 	
 end
 
+-- Compare the contents of two tables of type <t = {v1 = v1, v2 = v2, ...}>, and return true only on an exact match.
+local function crossCompare(t, t2)
 
-
--- Make a hash-table that keys computer-piano-keyboard keycommands to their corresponding number values, and which allows for multiple keycommands to overlap a single value
-local function makeKeyHash(names)
-	
-	local hash = {}
-	
-	for k, v in ipairs(names) do
-		if type(v) == "table" then
-			for _, vv in pairs(v) do
-				hash[vv] = k - 1
-			end
-		else
-			hash[v] = k - 1
+	for v in pairs(t) do
+		if t[v] ~= t2[v] then
+			return false
 		end
 	end
-	
-	return hash
-	
+	for v in pairs(t2) do
+		if t[v] ~= t2[v] then
+			return false
+		end
+	end
+
+	return true
+
 end
 
 
@@ -761,14 +758,14 @@ function Extrovert:addSpaceToSequence()
 
 	self:addStatesToUndoTable(self.seq[self.key].tick, self.key)
 	
-	for i = 1, self.gridx * self.spacing * self.quant do
+	for i = 1, self.gridx * self.quant * math.min(1, self.spacing) do
 		table.insert(self.seq[self.key].tick, self.pointer, {})
 	end
 	
 	self.notepointer = 1
 	
 	pd.post("Tick " .. self.pointer)
-	pd.post("Inserted " .. (self.gridx * self.spacing * self.quant) .. " empty ticks")
+	pd.post("Inserted " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " empty ticks")
 	
 	self:updateMainEditorColumn()
 
@@ -777,14 +774,14 @@ end
 -- Remove a number of ticks from the active sequence equal to the current spacing*quantization values, provided the result isn't smaller than the Monome's width
 function Extrovert:deleteSpaceFromSequence()
 
-	if (#self.seq[self.key].tick - (self.gridx * self.spacing * self.quant)) >= self.gridx then
+	if (#self.seq[self.key].tick - (self.gridx * self.quant * math.min(1, self.spacing))) >= self.gridx then
 	
 		self:addStatesToUndoTable(self.seq[self.key].tick, self.key)
 
 		-- Compensate for cases where the pointer is far along enough in the sequence that ticks from the sequence's start will be removed as well
-		if self.pointer > (#self.seq[self.key].tick - (self.gridx * self.spacing * self.quant)) then
+		if self.pointer > (#self.seq[self.key].tick - (self.gridx * self.quant * math.min(1, self.spacing))) then
 		
-			for i = 1, self.pointer - (#self.seq[self.key].tick - (self.gridx * self.spacing * self.quant)) do
+			for i = 1, self.pointer - (#self.seq[self.key].tick - (self.gridx * self.quant * math.min(1, self.spacing))) do
 				table.insert(self.seq[self.key].tick, #self.seq[self.key].tick, table.remove(self.seq[self.key].tick, 1))
 				self.pointer = self.pointer - 1
 			end
@@ -792,21 +789,21 @@ function Extrovert:deleteSpaceFromSequence()
 		end
 		
 		-- Remove the ticks from the active sequence
-		for i = 1, self.gridx * self.spacing * self.quant do
+		for i = 1, self.gridx * self.quant * math.min(1, self.spacing) do
 			table.remove(self.seq[self.key].tick, self.pointer)
 		end
 		
 		self:normalizePointers()
 		
 		pd.post("Tick " .. self.pointer)
-		pd.post("Removed " .. (self.gridx * self.spacing * self.quant) .. " ticks")
+		pd.post("Removed " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " ticks")
 		
 		self:updateMainEditorColumn()
 
 	else
 	
 		pd.post("Sequence must always contain at least " .. self.gridx .. " ticks!")
-		pd.post("Could not delete " .. (self.spacing * self.quant) .. "ticks from the sequence.")
+		pd.post("Could not delete " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. "ticks from the sequence.")
 	
 	end
 	
@@ -1085,11 +1082,7 @@ function Extrovert:initialize(sel, atoms)
 	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold.
 	self.undopoint = 1 -- Current point in the history table (advanced by redo, decreased by undo)
 	
-	self.kb = { -- Keeps track of which keys are currently pressed on the computer-keyboard
-		shift = false, -- Shift and Tab get special status, as they are potential bases for keychords, and thus treated somewhat differently
-		tab = false,
-		keys = {}, -- Array to hold the currently pressed normal keys
-	}
+	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 	
 	self.key = 1 -- Current active phrase in the editor panel
 	self.pointer = 1 -- Current active tick in the editor panel
@@ -1141,74 +1134,50 @@ end
 -- Parse incoming commands from the computer-keyboard
 function Extrovert:in_1_list(key)
 
-	-- Check for Shift and Tab, which are treated differently than other keys
-	if key[2] == "Tab" then
+	-- Chop the "_L" and "_R" off incoming Shift keystrokes
+	if key[2]:sub(1, 5) == "Shift" then
+		key[2] = "Shift"
+	end
 	
-		if key[1] == 1 then
-			self.kb.tab = true
-		else
-			self.kb.tab = false
+	pd.post(key[1] .. " " .. key[2]) -- DEBUG CODE REMOVE
+	
+	if key[1] == 1 then -- On key-down...
+	
+		if self.kb[key[2]] == nil then -- If the key isn't already set, set it
+			self.kb[key[2]] = key[2]
 		end
 		
-	elseif key[2]:sub(1, 5) == "Shift" then
-	
-		if key[1] == 1 then
-			self.kb.shift = true
-		else
-			self.kb.shift = false
-		end
-
-	else -- If the key is neither Shift nor Tab...
-	
-		if key[1] == 1 then -- On key-down...
+		-- Compare the current pressed keys with the list of command keychords
+		for k, v in pairs(self.commands) do
 		
-			if self.kb.keys[key[2]] == nil then -- If the key isn't already set, set it
-				self.kb.keys[key[2]] = true
+			-- Organize the command-list data properly for comparison
+			local compare = {}
+			for _, vv in pairs(v) do
+				compare[vv] = vv
 			end
 			
-			-- Insert Shift and Tab into a temporary array of keynames, which will be used for comparisons
-			local compare = self.kb.keys
-			if self.kb.shift == true then
-				compare["Shift"] = true
-			end
-			if self.kb.tab == true then
-				compare["Tab"] = true
-			end
+			if crossCompare(self.kb, compare) then -- If the current keypresses match a command's keychord, clear the non-chorded keys and activate the command
 			
-			-- Compare the current pressed keys with the list of command keychords
-			for k, v in pairs(self.commands) do
-			
-				local rev = {}
-				for _, vv in pairs(v) do
-					rev[vv] = true
-				end
-			
-				local successflag = false
-				
-				if #rev == #compare then -- Check the current keypresses for a match with a command's keychord
-					successflag = true
-					for kk, _ in pairs(rev) do
-						if compare[kk] == nil then
-							successflag = false
-						end
+				-- Unset all non-chording keys
+				for k, _ in pairs(self.kb) do
+					if (k ~= "Shift")
+					and (k ~= "Tab")
+					then
+						self.kb[k] = nil
 					end
 				end
-			
-				if successflag then -- If the current keypresses match a command's keychord, clear the actual keys table and activate the command
-					self.kb.keys = {}
-					self:parseEditorCommand(k)
-					break
-				end
-			
+				
+				self:parseEditorCommand(k)
+				
+				break -- Break from the outer for loop, after finding the correct command
+				
 			end
-			
-		else -- On key-up...
 		
-			if self.kb.keys[key[2]] ~= nil then -- If the key isn't already unset, unset it
-				self.kb.keys[key[2]] = nil
-			end
-			
 		end
+		
+	else -- On key-up...
+	
+		self.kb[key[2]] = nil -- Unset the key
 		
 	end
 
@@ -1223,15 +1192,6 @@ end
 -- Control the MIDI-READ apparatus, for loading a savefile
 function Extrovert:in_6_list(list)
 
-		-- TODO: Move these to a LOAD function
-		
-		--if list[1] == "LOAD_FILE" then
-	
-		--pd.send("extrovert-midiread-commands", "list", {"DIRNAME", self.hotseats[self.activeseat]})
-		--pd.send("extrovert-midiread-commands", "list", {"FILENUM", 0})
-		
-		--pd.send("extrovert-midiread-commands", "list", {"NEXTITEM"})
-	
 	if list[1] == "COMMAND" then -- Parse MIDI commands
 	
 		table.remove(list, 1)

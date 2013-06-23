@@ -152,7 +152,7 @@ return {
 		
 		UNDO = {
 			"Shift",
-			--"Tab",
+			"Tab",
 			"Z",
 		},
 		
@@ -374,12 +374,12 @@ return {
 		
 		SHIFT_VELOCITY_DOWN = {
 			"Shift",
-			"N",
+			"Z",
 		},
 		
 		SHIFT_VELOCITY_UP = {
 			"Shift",
-			"B",
+			"V",
 		},
 		
 		SHIFT_ALL_CHANNELS_DOWN = {
