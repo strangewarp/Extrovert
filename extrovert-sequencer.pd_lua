@@ -646,10 +646,8 @@ end
 -- Replace current data with data from a historical state
 function Extrovert:reviveHistoryData()
 
-	local v = self.history[self.undopoint]
-	
 	-- Ensure that tables are copied, rather than references
-	v[1] = deepCopy(v[1], {})
+	local v = deepCopy(self.history[self.undopoint], {})
 	
 	if v[3] then
 		if v[4] then
@@ -671,7 +669,7 @@ function Extrovert:undo()
 		self.undopoint = self.undopoint - 1
 		self:reviveHistoryData()
 	
-		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
+		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history .. " (" .. self.undodepth .. " max)")
 		
 		self:normalizePointers()
 		
@@ -688,14 +686,12 @@ end
 -- Change internal variables to the next state in the self.history table, if applicable
 function Extrovert:redo()
 
-	if (self.history[1] ~= nil)
-	and (self.undopoint < #self.history)
-	then
+	if self.undopoint < #self.history then
 	
 		self.undopoint = self.undopoint + 1
 		self:reviveHistoryData()
 		
-		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history)
+		pd.post("Undo depth: " .. self.undopoint .. "/" .. #self.history .. " (" .. self.undodepth .. " max)")
 		
 		self:normalizePointers()
 		
@@ -710,7 +706,7 @@ function Extrovert:redo()
 end
 
 -- Insert a set of recently-changed variables into a new entry in the history table
-function Extrovert:addStatesToHistory(item, key, tick, note)
+function Extrovert:addStateToHistory(item, key, tick, note)
 
 	-- If self.undopoint is less than the number of items in self.history, remove all items ahead of the self.undopoint index
 	if self.undopoint < #self.history then
@@ -734,8 +730,7 @@ end
 -- Clear the history table, and insert initial dummy values
 function Extrovert:makeCleanHistory()
 
-	self.history = {}
-	self.history[1] = { deepCopy(self.seq[self.key].tick, {}), self.key, false, false }
+	self.history = { { deepCopy(self.seq[self.key].tick[self.pointer], {}), self.key, self.pointer, false } }
 	self.undopoint = 1
 	
 end
@@ -754,7 +749,7 @@ function Extrovert:addSpaceToSequence()
 	pd.post("Tick " .. self.pointer)
 	pd.post("Inserted " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " empty ticks")
 	
-	self:addStatesToHistory(self.seq[self.key].tick, self.key)
+	self:addStateToHistory(self.seq[self.key].tick, self.key)
 	
 	self:updateMainEditorColumn()
 
@@ -785,7 +780,7 @@ function Extrovert:deleteSpaceFromSequence()
 		pd.post("Tick " .. self.pointer)
 		pd.post("Removed " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " ticks")
 		
-		self:addStatesToHistory(self.seq[self.key].tick, self.key)
+		self:addStateToHistory(self.seq[self.key].tick, self.key)
 
 		self:updateMainEditorColumn()
 
@@ -815,7 +810,7 @@ function Extrovert:deleteCurrentNote()
 		pd.post("Tick " .. self.pointer .. " - Point " .. oldpoint)
 		pd.post("Removed note: " .. table.concat(reportnote, " "))
 		
-		self:addStatesToHistory(self.seq[self.key].tick, self.key)
+		self:addStateToHistory(self.seq[self.key].tick, self.key)
 
 		self:updateMainEditorColumn()
 		
@@ -924,7 +919,7 @@ function Extrovert:parsePianoNote(note)
 	pd.post("Sequence " .. self.key .. ", Tick " .. self.pointer .. ", Point " .. self.notepointer)
 	pd.post("Inserted note " .. note)
 	
-	self:addStatesToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer)
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer)
 
 	self:updateMainEditorColumn()
 	
