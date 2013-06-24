@@ -385,7 +385,7 @@ function Extrovert:updatePagePanel()
 end
 
 -- Update an item's internal segments in the editor panel GUI
-function Extrovert:updateEditorItem(x, y, tick, chan, cmd, note, velo, dur)
+function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, dur)
 
 	local xcenter = math.ceil((self.prefs.gui.editor.cols - 1) / 2)
 	local ycenter = math.floor((self.prefs.gui.editor.rows - 1) / 2)
@@ -430,6 +430,53 @@ function Extrovert:updateEditorItem(x, y, tick, chan, cmd, note, velo, dur)
 		
 	end
 	
+	-- Assign proper colors to any items covered by the copypaste range
+	if self.copy.top
+	and self.copy.bot
+	and (x == xcenter)
+	and (type(tick) == "number")
+	then
+	
+		if (tick > self.copy.top)
+		and (tick < self.copy.bot)
+		then
+		
+			bgcolor = self.color[7]
+			labelcolor = self.color[6]
+		
+		elseif (tick == self.copy.top)
+		and (tick == self.copy.bot)
+		then
+		
+			if (notekey == false)
+			or rangeCheck(notekey, self.copy.notetop, self.copy.notebot)
+			then
+				bgcolor = self.color[7]
+				labelcolor = self.color[6]
+			end
+		
+		elseif tick == self.copy.top then
+		
+			if (notekey == false)
+			or (notekey >= self.copy.notetop)
+			then
+				bgcolor = self.color[7]
+				labelcolor = self.color[6]
+			end
+		
+		elseif tick == self.copy.bot then
+		
+			if (notekey == false)
+			or (notekey <= self.copy.notebot)
+			then
+				bgcolor = self.color[7]
+				labelcolor = self.color[6]
+			end
+		
+		end
+	
+	end
+	
 	if x == xcenter then -- Use regular-brightness colors in the active column
 		label = labelcolor[1]
 		bg = bgcolor[1]
@@ -454,19 +501,19 @@ function Extrovert:updateEditorItem(x, y, tick, chan, cmd, note, velo, dur)
 	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-tick", bg, label))
 	pd.send(itemname .. "-tick", "label", {tostring(tick)})
 	
-	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-chan", bg, label))
+	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-chan", bgalt, label))
 	pd.send(itemname .. "-chan", "label", {tostring(chan)})
 	
 	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-cmd", bg, label))
 	pd.send(itemname .. "-cmd", "label", {tostring(cmd)})
 	
-	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-note", bg, label))
+	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-note", bgalt, label))
 	pd.send(itemname .. "-note", "label", {tostring(note)})
 	
 	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-velo", bg, label))
 	pd.send(itemname .. "-velo", "label", {tostring(velo)})
 	
-	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-dur", bg, label))
+	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-dur", bgalt, label))
 	pd.send(itemname .. "-dur", "label", {tostring(dur)})
 	
 end
@@ -494,10 +541,10 @@ function Extrovert:updateEditorColumn(x)
 		and (#items >= 1)
 		then -- Insert all notes and commands that fall on uncollapsed ticks
 			for k, v in ipairs(items) do
-				table.insert(visibleitems, {qkey, unpack(v)})
+				table.insert(visibleitems, {qkey, k, unpack(v)})
 			end
 		else -- When an uncollapsed tick is empty, insert an empty item
-			table.insert(visibleitems, {qkey, "--", "---", "------", "---", "----"})
+			table.insert(visibleitems, {qkey, false, "--", "---", "------", "---", "----"})
 		end
 		
 		if self.quant ~= 1 then -- If the quantization value isn't a single tick, insert collapsed items that display the number of notes skipped between editor items
@@ -511,7 +558,7 @@ function Extrovert:updateEditorColumn(x)
 				end
 			end
 			
-			table.insert(visibleitems, {".....", "..", skippeditems, "skipped", "...", "...."})
+			table.insert(visibleitems, {".....", false, "..", skippeditems, "skipped", "...", "...."})
 			
 		end
 		
@@ -628,17 +675,47 @@ end
 
 
 
--- Move the positions of the tick-pointer and note-pointer to valid indexes
+-- Move the positions of all pointers to valid indexes
 function Extrovert:normalizePointers()
 
+	-- Normalize tick pointer
 	if self.pointer > #self.seq[self.key].tick then
 		self.pointer = #self.seq[self.key].tick
 	end
 	
+	-- Normalize note pointer
 	if (self.seq[self.key].tick[self.pointer][1] == nil)
 	or (self.notepointer > #self.seq[self.key].tick[self.pointer])
 	then
 		self.notepointer = 1
+	end
+	
+	if self.copy.bot then
+	
+		-- Normalize bottom copypaste pointer
+		if self.copy.bot > #self.seq[self.key].tick then
+			self.copy.bot = #self.seq[self.key].tick
+		end
+		
+		-- Normalize bottom copypaste notepointer
+		if self.seq[self.key].tick[self.copy.bot][self.copy.notebot] == nil then
+			self.copy.notebot = #self.seq[self.key].tick[self.copy.bot] or 1
+		end
+		
+	end
+	
+	if self.copy.top then
+	
+		-- Normalize top copypaste pointer
+		if self.copy.top > #self.seq[self.key].tick then
+			self.copy.top = self.copy.bot or 1
+		end
+		
+		-- Normalize top copypaste notepointer
+		if self.seq[self.key].tick[self.copy.top][self.copy.notetop] == nil then
+			self.copy.notetop = 1
+		end
+		
 	end
 
 end
@@ -738,6 +815,95 @@ end
 
 
 
+-- Set the upper copy pointers to the current tick and note pointer values
+function Extrovert:setUpperCopyPoint()
+
+	self.copy.top = self.pointer
+	self.copy.notetop = self.notepointer
+	
+	-- Set the bottom copy-range variables equal to the top copy-range variables, if they are unset
+	if self.copy.bot == false then
+		self.copy.bot = self.copy.top
+		self.copy.notebot = self.notepointer
+	end
+	
+	-- Normalize the bottom-copy-pointer, if it is above the new top-copy-pointer value
+	if self.copy.top > self.copy.bot then
+		self.copy.bot = self.copy.top
+	end
+	
+	-- If the top-copy-pointer and bottom-copy-pointer are upon the same tick, and the bottom-copy-notepointer is above the top-copy-notepointer, normalize the bottom-copy-notepointer
+	if self.copy.top == self.copy.bot then
+		if self.copy.notetop > self.copy.notebot then
+			self.copy.notebot = self.copy.notetop
+		end
+	end
+	
+	pd.post("Copy range: " .. self.copy.top .. "(" .. self.copy.notetop .. ") - " .. self.copy.bot .. "(" .. self.copy.notebot .. ")")
+	
+	self:updateMainEditorColumn()
+
+end
+
+-- Set the lower copy pointers to the current tick and note pointer values
+function Extrovert:setLowerCopyPoint()
+
+	self.copy.bot = self.pointer
+	self.copy.notebot = self.notepointer
+	
+	-- Set the top copy-range variables equal to the bottom copy-range variables, if they are unset
+	if self.copy.top == false then
+		self.copy.top = self.copy.bot
+		self.copy.notetop = self.notepointer
+	end
+	
+	-- Normalize the top-copy-pointer, if it is below the new bottom-copy-pointer value
+	if self.copy.bot < self.copy.top then
+		self.copy.top = self.copy.bot
+	end
+	
+	-- If the bottom-copy-pointer and top-copy-pointer are upon the same tick, and the top-copy-notepointer is below the bottom-copy-notepointer, normalize the top-copy-notepointer
+	if self.copy.top == self.copy.bot then
+		if self.copy.notebot < self.copy.notetop then
+			self.copy.notetop = self.copy.notebot
+		end
+	end
+	
+	pd.post("Copy range: " .. self.copy.top .. "(" .. self.copy.notetop .. ") - " .. self.copy.bot .. "(" .. self.copy.notebot .. ")")
+	
+	self:updateMainEditorColumn()
+
+end
+
+-- Unset all copy-pointers and copy-notepointers
+function Extrovert:unsetCopyPoints()
+
+	self.copy.top, self.copy.bot = false, false
+	self.copy.notetop, self.copy.notebot = 1, 1
+	
+	pd.post("Copy points unset.")
+
+	self:updateMainEditorColumn()
+
+end
+
+-- Move every note within the selection range into the self.copy.tab table
+function Extrovert:cutSequence()
+
+end
+
+-- Copy every note within the selection range into the self.copy.tab table
+function Extrovert:copySequence()
+
+end
+
+-- Paste every note in self.copy.tab to the current pointer location
+function Extrovert:pasteSequence()
+
+end
+
+
+
 -- Add a number of ticks to the active sequence equal to the current spacing*quantization values
 function Extrovert:addSpaceToSequence()
 
@@ -746,6 +912,8 @@ function Extrovert:addSpaceToSequence()
 	end
 	
 	self.notepointer = 1
+	
+	self:normalizePointers()
 	
 	pd.post("Tick " .. self.pointer)
 	pd.post("Inserted " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " empty ticks")
@@ -808,6 +976,8 @@ function Extrovert:deleteCurrentNote()
 			self.notepointer = self.notepointer - 1
 		end
 	
+		self:normalizePointers()
+	
 		pd.post("Tick " .. self.pointer .. " - Point " .. oldpoint)
 		pd.post("Removed note: " .. table.concat(reportnote, " "))
 		
@@ -827,7 +997,7 @@ end
 -- Move the editor's pointer to a given point in the active sequence
 function Extrovert:moveToPoint(p)
 
-	if self.seq[self.key].tick[p][1] ~= nil then
+	if self.seq[self.key].tick[p] ~= nil then
 		self.pointer = p
 	end
 	
@@ -846,9 +1016,13 @@ end
 -- Move the editor's pointer to the inverse tick of the active sequence, bounded by the current quantization value
 function Extrovert:moveToInversePoint()
 
-	local qticks = math.floor(#self.seq[self.key].tick / self.quant)
+	local ticks = #self.seq[self.key].tick
+	local inv = math.floor(ticks / 2)
+	local qt = math.floor(inv / self.quant)
+	local offset = qt * self.quant
 	
-	self.pointer = (((self.pointer + math.floor(qticks / 2)) - 1) % #self.seq[self.key].tick) + 1
+	self.pointer = (((self.pointer + offset) - 1) % #self.seq[self.key].tick) + 1
+	self.notepointer = 1
 
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
@@ -1066,6 +1240,14 @@ function Extrovert:initialize(sel, atoms)
 	self.history = {} -- Tracks all changes, for the undo/redo functions to act upon
 	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold.
 	self.undopoint = 1 -- Current point in the history table (advanced by redo, decreased by undo)
+	
+	self.copy = {
+		tab = {}, -- Table to hold the active cut/copy/paste data
+		top = false, -- Top tick-pointer; false when not active
+		bot = false, -- Bottom tick-pointer; false when not active
+		notetop = 1, -- Top note-pointer
+		notebot = 1, -- Bottom note-pointer
+	}
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 	

@@ -102,8 +102,6 @@ return {
 				{2, 2, "Clock", "extrovert-clock-button"},
 				{3, 2, "Quant", "extrovert-quant-button"},
 				{3, 1, "Octave", "extrovert-octave-button"},
-				{3, 2, "Seq", "extrovert-seq-button"},
-				{2, 1, "TICK", "extrovert-tick-button"},
 				{2, 2, "CHAN", "extrovert-chan-button"},
 				{2, 1, "CMD", "extrovert-cmd-button"},
 				{2, 2, "VELO", "extrovert-velo-button"},
@@ -164,20 +162,17 @@ return {
 		
 		SET_COPY_POINT_1 = {
 			"Shift",
-			"Tab",
-			"!",
+			"<",
 		},
 		
 		SET_COPY_POINT_2 = {
 			"Shift",
-			"Tab",
-			"@",
+			">",
 		},
 		
 		UNSET_COPY_POINTS = {
 			"Shift",
-			"Tab",
-			"#",
+			"?",
 		},
 		
 		CUT = {
@@ -471,6 +466,7 @@ return {
 		
 		SET_COPY_POINT_1 = { "setUpperCopyPoint" },
 		SET_COPY_POINT_2 = { "setLowerCopyPoint" },
+		UNSET_COPY_POINTS = { "unsetCopyPoints" },
 		CUT = { "cutSequence" },
 		COPY = { "copySequence" },
 		PASTE = { "pasteSequence" },
