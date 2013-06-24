@@ -721,7 +721,7 @@ function Extrovert:addStateToHistory(item, key, tick, note)
 	end
 	
 	-- Copy over all given variables to the history table's most recent index
-	self.history[#self.history + 1] = {deepCopy(item, {}), key, tick or false, note or false}
+	self.history[#self.history + 1] = deepCopy({item, key, tick or false, note or false}, {})
 	
 	self.undopoint = #self.history -- Set self.undopoint to the most recent index
 	
@@ -730,7 +730,8 @@ end
 -- Clear the history table, and insert initial dummy values
 function Extrovert:makeCleanHistory()
 
-	self.history = { { deepCopy(self.seq[self.key].tick[self.pointer], {}), self.key, self.pointer, false } }
+	self.history = {}
+	self.history[1] = deepCopy({self.seq[self.key].tick[self.pointer], self.key, self.pointer, false}, {})
 	self.undopoint = 1
 	
 end
