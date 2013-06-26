@@ -890,16 +890,105 @@ end
 -- Move every note within the selection range into the self.copy.tab table
 function Extrovert:cutSequence()
 
+	self.copytab = {} -- Clear old copy data, if there was any
+	
+	local temptab = {}
+	
+	local i = 1
+	for t = self.copy.top, self.copy.bot do -- Iterate from upper copy tick to lower copy tick
+	
+		temptab[i] = {}
+		
+		local deletions = 0
+		
+		while (self.seq[self.key].tick[t][self.copy.notetop] ~= nil) -- While the active notepointer isn't nil...
+		and (
+			(t ~= self.copy.bot) -- And "t" hasn't reached the tick-range's bottom...
+			or (deletions < self.copy.notebot) -- OR the number of deletions hasn't exceeded the note-range's bottom...
+		)
+		do -- Insert the note into the temporary copytable, based on the position of notetop (because notetop may start out at a non-1 value on the initial tick)
+			table.insert(temptab[i], table.remove(self.seq[self.key].tick[t], self.copy.notetop))
+			deletions = deletions + 1
+		end
+		
+		self.copy.notetop = 1
+		i = i + 1
+		
+	end
+	
+	-- If the active sequence is left with too few ticks, fill it with empty ones
+	if (#self.seq[self.key].tick == nil)
+	or (#self.seq[self.key].tick < self.gridx)
+	then
+		for i = #self.seq[self.key].tick or 1, self.gridx do
+			self.seq[self.key].tick[i] = {}
+		end
+	end
+	
+	self.copytab = deepCopy(temptab, {}) -- Copy the tables, rather than references, to prevent horrible reference stickiness
+	
+	self:unsetCopyPoints()
+	
+	self:normalizePointers()
+	
+	pd.post("Sequence " .. self.key .. ":")
+	pd.post("Cut " .. #self.copytab .. " ticks.")
+	
+	self:addStateToHistory(self.seq[self.key].tick, self.key)
+	
+	self:updateMainEditorColumn()
+
 end
 
 -- Copy every note within the selection range into the self.copy.tab table
 function Extrovert:copySequence()
 
+	self.copytab = {} -- Clear old copy data, if there was any
+	
+	local temptab = {}
+	
+	local i = 1
+	for t = self.copy.top, self.copy.bot do -- Iterate from upper copy tick to lower copy tick
+	
+		temptab[i] = {}
+		
+		while (self.seq[self.key].tick[t][self.copy.notetop] ~= nil) -- While the active notepointer isn't nil...
+		and (
+			(t ~= self.copy.bot) -- And "t" hasn't reached the tick-range's bottom...
+			or (self.notetop <= self.copy.notebot) -- OR the notetop point hasn't exceeded the note-range's bottom...
+		)
+		do -- Insert the note into the temporary copytable, based on the position of notetop (because notetop may start out at a non-1 value on the initial tick)
+			table.insert(temptab[i], self.seq[self.key].tick[t][self.copy.notetop])
+			self.notetop = self.notetop + 1
+		end
+		
+		self.copy.notetop = 1
+		i = i + 1
+		
+	end
+	
+	self.copytab = deepCopy(temptab, {}) -- Copy the tables, rather than references, to prevent horrible reference stickiness
+	
+	pd.post("Sequence " .. self.key .. ":")
+	pd.post("Copied " .. #self.copytab .. " ticks.")
+	
 end
 
 -- Paste every note in self.copy.tab to the current pointer location
 function Extrovert:pasteSequence()
 
+	for k, v in ipairs(self.copytab) do
+		table.insert(self.seq[self.key].tick, (self.pointer + k) - 1, deepCopy(v, {}))
+	end
+	
+	self.notepointer = 1
+	
+	pd.post("Sequence " .. self.key .. ":")
+	pd.post("Pasted " .. #self.copytab .. " ticks.")
+	pd.post("Ticks in sequence: " .. #self.seq[self.key].tick)
+	
+	self:updateMainEditorColumn()
+	
 end
 
 
@@ -991,6 +1080,17 @@ function Extrovert:deleteCurrentNote()
 		pd.post("No notes to delete!")
 		
 	end
+
+end
+
+-- Toggle between "friendly" and "hacker" depictions of MIDI data values
+function Extrovert:toggleFriendlyMode()
+
+	self.friendlyview = not self.friendlyview
+	
+	pd.post("Friendly Note View toggle: " .. tostring(self.friendlyview))
+	
+	self:updateEditorPanel()
 
 end
 
@@ -1276,12 +1376,13 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.pageheld = false -- Track the up-down keystrokes on the page buttons, in order to apply other effects to the pages' entire contents when said buttons are held down
 	
-	self.offbutton = false
-	self.gatebutton = false
+	self.offbutton = false -- Toggles whether a sequence should be turned off when pressed. If a page button is pressed instead, that page's sequences will all turn off.
+	self.gatebutton = false -- Toggles whether a given performative command should be interpreted immediately, or on the next quantization-based timing gate
 	self.snapbutton = false -- Toggles whether to snap to the first tick in a given sub-segment, or continue from within that segment at a position comparable to the current pointer.
-	self.reversebutton = false
-	self.skipbutton = false
-	self.slowbutton = false
+	self.reversebutton = false -- Toggles whether the sequence will advance in reverse.
+	self.skipbutton = false -- Toggles whether to skip a number of ticks equal to the spacing value on every tick
+	self.stutterbutton = false -- Causes the previous note to stutter while the sequence's row is held.
+	self.slowbutton = false -- Slows the rate at which a sequence's ticks progress. Covers multiple buttons on the Monome's bottom row; false when not in use, else holds slow value.
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
 	self:resetAllSequences() -- Populate the self.seq table with default data

@@ -193,7 +193,7 @@ return {
 			"V",
 		},
 		
-		VIEW_MODE_TOGGLE = {
+		FRIENDLY_VIEW_TOGGLE = {
 			"Shift",
 			"M",
 		},
@@ -460,6 +460,8 @@ return {
 		
 		KEY_PREV = { "moveToRelativeKey", -1 },
 		KEY_NEXT = { "moveToRelativeKey", 1 },
+		
+		FRIENDLY_VIEW_TOGGLE = { "toggleFriendlyMode" },
 		
 		UNDO = { "undo" },
 		REDO = { "redo" },
