@@ -422,8 +422,8 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 		
 		-- Convert a numerical command value into a human-readable word
 		for k, v in pairs(self.cmdnames) do
-			if cmd == v then
-				cmd = k
+			if cmd == v[2] then
+				cmd = v[1]
 				break
 			end
 		end
@@ -1165,6 +1165,74 @@ function Extrovert:moveToRelativePoint(spaces)
 	
 end
 
+-- Move to the previous page of the active sequence
+function Extrovert:moveToPreviousPage()
+
+	local visibleskip = 2
+	if self.quant == 1 then
+		visibleskip = 1
+	end
+	
+	local contents = math.floor(self.prefs.gui.editor.rows / 2) * self.quant
+	local baseskip = math.floor(contents / visibleskip)
+	local extranotes = 0
+	
+	for i = self.pointer, self.pointer - contents, -1 do
+	
+		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
+		
+		if (self.seq[self.key].tick[adjpoint][1] ~= nil)
+		and (#self.seq[self.key].tick[adjpoint] > 1)
+		then
+			extranotes = extranotes + (#self.seq[self.key].tick[adjpoint] - 1)
+		end
+		
+	end
+
+	self.pointer = ((((self.pointer - 1) - baseskip) + extranotes) % #self.seq[self.key].tick) + 1
+	
+	self:normalizePointers()
+	
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updateMainEditorColumn()
+	
+end
+
+-- Move to the next page of the active sequence
+function Extrovert:moveToNextPage()
+
+	local visibleskip = 2
+	if self.quant == 1 then
+		visibleskip = 1
+	end
+
+	local contents = math.ceil(self.prefs.gui.editor.rows / 2) * self.quant
+	local baseskip = math.ceil(contents / visibleskip)
+	local extranotes = 0
+	
+	for i = self.pointer, self.pointer + contents do
+	
+		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
+		
+		if (self.seq[self.key].tick[adjpoint][1] ~= nil)
+		and (#self.seq[self.key].tick[adjpoint] > 1)
+		then
+			extranotes = extranotes + (#self.seq[self.key].tick[adjpoint] - 1)
+		end
+		
+	end
+
+	self.pointer = ((((self.pointer - 1) + baseskip) - extranotes) % #self.seq[self.key].tick) + 1
+	
+	self:normalizePointers()
+	
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updateMainEditorColumn()
+	
+end
+
 -- Move the editor's sequence-pointer to a different sequence, based on relative direction from the current sequence
 function Extrovert:moveToRelativeKey(spaces)
 
@@ -1178,6 +1246,277 @@ function Extrovert:moveToRelativeKey(spaces)
 	self:updatePagePanel()
 	self:updateEditorPanel()
 	
+end
+
+-- Move the key across, to its equivalent sequence on a different page
+function Extrovert:moveKeyAcross(spaces)
+
+	self:moveToRelativeKey(((((self.gridy - 2) * spaces) - 1) % #self.seq) + 1)
+	
+end
+
+-- Shift the active sequence to an adjacent slot, switching it with the sequence in its destination
+function Extrovert:moveSequence(spaces)
+
+	local dest = (((self.key - 1) + spaces) % #self.seq) + 1
+	local s1 = self.seq[self.key]
+	local s2 = self.seq[dest]
+	
+	self.seq[self.key], self.seq[dest] = deepCopy(s1, {}), deepCopy(s2, {})
+	
+	pd.post("Sequence " .. self.key)
+	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	
+	self:updatePagePanel()
+	self:updateEditorPanel()
+	
+end
+
+-- Shift the active sequence to the same slot in a different page, switching it with the sequence in its destination
+function Extrovert:moveSequenceAcross(spaces)
+
+	self:moveSequence(((((self.gridy - 2) * spaces) - 1) % #self.seq) + 1)
+
+end
+
+-- Shift self.spacing by a given amount
+function Extrovert:shiftSpacing(dist)
+
+	self.spacing = math.max(1, self.spacing + (self.quant * dist))
+	
+	pd.post("Spacing: " .. self.spacing)
+	
+	self:updateControlTiles()
+
+end
+
+-- Shift self.quant by a given amount
+function Extrovert:shiftQuant(dist)
+
+	if dist < 0 then
+		dist = 1 / (abs(dist) + 1)
+	else
+		dist = dist + 1
+	end
+
+	if (self.quant * dist) >= 3 then
+		self.quant = self.quant * dist
+	elseif (self.quant * dist) == 1.5 then
+		self.quant = 1
+	elseif (self.quant * dist) >= 2 then
+		self.quant = 3
+		self.quant = self.quant * (dist - 1)
+	end
+	
+	pd.post("Quantization: " .. self.quant)
+	
+	self:updateControlTiles()
+	self:updateEditorPanel()
+
+end
+
+-- Shift self.duration by a given amount
+function Extrovert:shiftDuration(dist)
+
+	self.duration = math.max(1, self.duration + (self.quant * dist))
+
+	pd.post("Duration: " .. self.duration)
+	
+	self:updateControlTiles()
+
+end
+
+-- Shift self.command by a given amount
+function Extrovert:shiftCommand(dist)
+
+	for k, v in pairs(self.cmdnames) do
+		if v[2] == self.command then
+			self.command = self.cmdnames[(((k + dist) - 1) % #self.cmdnames) + 1][2]
+			break
+		end
+	end
+	
+	pd.post("Command: " .. self.command)
+	
+	self:updateControlTiles()
+
+end
+
+-- Shift self.channel by a given amount
+function Extrovert:shiftChannel(dist)
+
+	self.channel = (self.channel + dist) % 16
+	
+	pd.post("Channel: " .. self.channel)
+	
+	self:updateControlTiles()
+
+end
+
+-- Shift self.velocity by a given amount
+function Extrovert:shiftVelocity(dist)
+
+	self.velocity = (self.velocity + dist) % 128
+	
+	pd.post("Velocity: " .. self.velocity)
+	
+	self:updateControlTiles()
+
+end
+
+-- Shift self.octave by a given amount
+function Extrovert:shiftOctave(dist)
+
+	self.octave = (self.octave + dist) % 11
+	
+	pd.post("Octave: " .. self.octave)
+	
+	self:updateControlTiles()
+
+end
+
+-- Change the value of a given byte, in the active note, at the active pointer
+function Extrovert:moveByte(bname, bytepoint, dist, index, limit, point, notepoint)
+
+	bname = bname or "Byte"
+	point = point or self.pointer
+	notepoint = notepoint or self.notepointer
+
+	local notes = self.seq[self.key].tick[point]
+	if notes[notepoint] ~= nil then
+	
+		local byte = notes[notepoint][bytepoint]
+		byte = (((byte - index) + dist) % limit) + index
+		
+		self.seq[self.key].tick[point][notepoint][bytepoint] = byte
+	
+		pd.post(bname .. " shifted to: " .. pitch)
+		
+	end
+	
+end
+
+-- Change the values of all given bytes of a certain type, within the active sequence
+function Extrovert:moveAllBytes(bname, bytepoint, dist, index, limit)
+
+	for k, v in pairs(self.seq[self.key].tick) do
+	
+		if v[1] ~= nil then
+		
+			for kk, vv in pairs(v) do
+				moveByte(bname, bytepoint, dist, index, limit, k, kk)
+			end
+		
+		end
+	
+	end
+
+	pd.post("Sequence " .. self.key)
+	pd.post("Shifted all " .. bname .. " values by " .. dist)
+
+	self:updateMainEditorColumn()
+
+end
+
+-- Change the channel-value within the active notepointer
+function Extrovert:moveChannel(dist)
+
+	self:moveByte("Channel", 1, dist, 0, 16, self.pointer, self.notepointer)
+
+	self:updateMainEditorColumn()
+
+end
+
+-- Change the pitch-value within the active notepointer
+function Extrovert:movePitch(dist)
+
+	self:moveByte("Pitch", 3, dist * self.velocity, 0, 128, self.pointer, self.notepointer)
+
+	self:updateMainEditorColumn()
+
+end
+
+-- Chage the velocity value within the active notepointer
+function Extrovert:moveVelocity(dist)
+
+	self:moveByte("Velocity", 4, dist * self.velocity, 0, 128, self.pointer, self.notepointer)
+	
+	self:updateMainEditorColumn()
+
+end
+
+-- Change the duration value within the active notepointer
+function Extrovert:moveDuration(dist)
+
+	self:moveByte("Duration", 5, dist * self.quant, 1, #self.seq[self.key].tick, self.pointer, self.notepointer)
+	
+	self:updateMainEditorColumn()
+
+end
+
+-- Change all channel-values within the active sequence
+function Extrovert:moveAllChannels(dist)
+
+	self:moveAllBytes("Channel", 1, dist, 0, 16)
+
+end
+
+-- Change all pitch-values within the active sequence
+function Extrovert:moveAllPitches(dist)
+
+	self:moveAllBytes("Pitch", 3, dist * self.velocity, 0, 128)
+
+end
+
+-- Change all velocity values within the active sequence
+function Extrovert:moveAllVelocities(dist)
+
+	self:moveAllBytes("Velocity", 4, dist * self.velocity, 0, 128)
+
+end
+
+-- Change all duration values within the active sequence
+function Extrovert:moveAllDurations(dist)
+
+	self:moveAllBytes("Duration", 5, dist * self.quant, 1, #self.seq[self.key].tick)
+
+end
+
+-- Shift the position of a note to an adjacent pointer
+function Extrovert:moveNote(spaces)
+
+	local direction = math.min(1, math.max(-1, spaces))
+	
+	for i = self.pointer, self.pointer + (spaces - direction), direction do
+	
+		local rem = ((i - 1) % #self.seq[self.key].tick) + 1
+		local ins = (((rem + direction) - 1) % #self.seq[self.key].tick) + 1
+		
+		table.insert(self.seq[self.key].tick, ins, table.remove(self.seq[self.key].tick, rem))
+	
+	end
+
+end
+
+-- Shift the positions of all notes to adjacent pointers
+function Extrovert:moveAllNotes(spaces)
+
+	local direction = math.min(1, math.max(-1, spaces))
+	local rem = 1
+	local ins = #self.seq[self.key].tick
+	if direction == -1 then
+		rem, ins = ins, rem
+	end
+
+	for i = direction, spaces, direction do
+		table.insert(self.seq[self.key].tick, ins, table.remove(self.seq[self.key].tick, rem))
+	end
+	
+	pd.post("Sequence " .. self.key)
+	pd.post("Moved all notes by " .. spaces .. " ticks")
+
+	self:updateMainEditorColumn()
+
 end
 
 -- Send a note from the computer-keyboard-piano to the relevant sequence

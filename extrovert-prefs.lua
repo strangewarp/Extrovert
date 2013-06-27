@@ -243,14 +243,38 @@ return {
 			"Right",
 		},
 		
+		KEY_ACROSS_LEFT = {
+			"Shift",
+			"Left",
+		},
+		
 		KEY_ACROSS_RIGHT = {
 			"Shift",
 			"Right",
 		},
 		
-		KEY_ACROSS_LEFT = {
+		MOVE_SEQ_UP = {
 			"Shift",
+			"Tab",
+			"Up",
+		},
+		
+		MOVE_SEQ_DOWN = {
+			"Shift",
+			"Tab",
+			"Down",
+		},
+		
+		MOVE_SEQ_LEFT = {
+			"Shift",
+			"Tab",
 			"Left",
+		},
+		
+		MOVE_SEQ_RIGHT = {
+			"Shift",
+			"Tab",
+			"Right",
 		},
 		
 		SPACING_INC = {
@@ -347,76 +371,88 @@ return {
 			"I",
 		},
 		
-		SHIFT_CHANNEL_DOWN = {
+		MOVE_CHANNEL_DOWN = {
 			"Shift",
 			"W",
 		},
 		
-		SHIFT_CHANNEL_UP = {
+		MOVE_CHANNEL_UP = {
 			"Shift",
 			"Q",
 		},
 		
-		SHIFT_PITCH_DOWN = {
+		MOVE_PITCH_DOWN = {
 			"Shift",
 			"A",
 		},
 		
-		SHIFT_PITCH_UP = {
+		MOVE_PITCH_UP = {
 			"Shift",
 			"S",
 		},
 		
-		SHIFT_VELOCITY_DOWN = {
+		MOVE_VELOCITY_DOWN = {
 			"Shift",
 			"Z",
 		},
 		
-		SHIFT_VELOCITY_UP = {
+		MOVE_VELOCITY_UP = {
 			"Shift",
 			"V",
 		},
 		
-		SHIFT_ALL_CHANNELS_DOWN = {
+		MOVE_DURATION_DOWN = {
+			"Shift",
+			"Tab",
+			"A",
+		},
+		
+		MOVE_DURATION_UP = {
+			"Shift",
+			"Tab",
+			"S",
+		},
+		
+		MOVE_ALL_CHANNELS_DOWN = {
 			"Shift",
 			"E",
 		},
 		
-		SHIFT_ALL_CHANNELS_UP = {
+		MOVE_ALL_CHANNELS_UP = {
 			"Shift",
 			"R",
 		},
 		
-		SHIFT_ALL_PITCHES_DOWN = {
+		MOVE_ALL_PITCHES_DOWN = {
 			"Shift",
 			"D",
 		},
 		
-		SHIFT_ALL_PITCHES_UP = {
+		MOVE_ALL_PITCHES_UP = {
 			"Shift",
 			"F",
 		},
 		
-		SHIFT_ALL_VELOCITY_DOWN = {
+		MOVE_ALL_VELOCITIES_DOWN = {
 			"Shift",
 			"C",
 		},
 		
-		SHIFT_ALL_VELOCITY_UP = {
+		MOVE_ALL_VELOCITIES_UP = {
 			"Shift",
 			"V",
 		},
 		
-		SHIFT_SEQ_UP = {
+		MOVE_ALL_DURATIONS_DOWN = {
 			"Shift",
-			"BackSpace",
-			"Up",
+			"Tab",
+			"D",
 		},
 		
-		SHIFT_SEQ_DOWN = {
+		MOVE_ALL_DURATIONS_UP = {
 			"Shift",
-			"BackSpace",
-			"Down",
+			"Tab",
+			"F",
 		},
 		
 	},
@@ -455,12 +491,21 @@ return {
 	
 		NAVIGATE_UP = { "moveToRelativePoint", -1 },
 		NAVIGATE_DOWN = { "moveToRelativePoint", 1 },
+		NAVIGATE_PREVPAGE = { "moveToPreviousPage" },
+		NAVIGATE_NEXTPAGE = { "moveToNextPage" },
 		NAVIGATE_HOME = { "moveToPoint", 1 },
 		NAVIGATE_INVERSE = { "moveToInversePoint" },
 		
 		KEY_PREV = { "moveToRelativeKey", -1 },
 		KEY_NEXT = { "moveToRelativeKey", 1 },
+		KEY_ACROSS_LEFT = { "moveKeyAcross", -1 },
+		KEY_ACROSS_RIGHT = { "moveKeyAcross", 1 },
 		
+		MOVE_SEQ_UP = { "moveSequence", -1 },
+		MOVE_SEQ_DOWN = { "moveSequence", 1 },
+		MOVE_SEQ_LEFT = { "moveSequenceAcross", -1 },
+		MOVE_SEQ_RIGHT = { "moveSequenceAcross", 1 },
+	
 		FRIENDLY_VIEW_TOGGLE = { "toggleFriendlyMode" },
 		
 		UNDO = { "undo" },
@@ -478,24 +523,69 @@ return {
 		SPACE_INSERT = { "addSpaceToSequence" },
 		SPACE_DELETE = { "deleteSpaceFromSequence" },
 		
+		SPACING_DEC = { "shiftSpacing", -1 },
+		SPACING_INC = { "shiftSpacing", 1 },
 		
+		QUANTIZATION_DEC = { "shiftQuant", -1 },
+		QUANTIZATION_INC = { "shiftQuant", 1 },
 		
-	
+		DURATION_DEC = { "shiftDuration", -1 },
+		DURATION_INC = { "shiftDuration", 1 },
+		
+		COMMAND_DEC = { "shiftCommand", -1 },
+		COMMAND_INC = { "shiftCommand", 1 },
+		
+		CHANNEL_DEC = { "shiftChannel", -1 },
+		CHANNEL_INC = { "shiftChannel", 1 },
+		
+		VELOCITY_DEC1 = { "shiftVelocity", -1 },
+		VELOCITY_INC1 = { "shiftVelocity", 1 },
+		VELOCITY_DEC10 = { "shiftVelocity", -10 },
+		VELOCITY_INC10 = { "shiftVelocity", 10 },
+		
+		OCTAVE_DEC = { "shiftOctave", -1 },
+		OCTAVE_INC = { "shiftOctave", 1 },
+		
+		MOVE_NOTE_BACK = { "moveNote", -1 },
+		MOVE_NOTE_FORWARD = { "moveNote", 1 },
+		MOVE_ALL_NOTES_BACK = { "moveAllNotes", -1 },
+		MOVE_ALL_NOTES_FORWARD = { "moveAllNotes", 1 },
+		
+		MOVE_CHANNEL_DOWN = { "moveChannel", -1 },
+		MOVE_CHANNEL_UP = { "moveChannel", 1 },
+		MOVE_ALL_CHANNELS_DOWN = { "moveAllChannels", -1 },
+		MOVE_ALL_CHANNELS_UP = { "moveAllChannels", 1 },
+		
+		MOVE_PITCH_DOWN = { "movePitch", -1 },
+		MOVE_PITCH_UP = { "movePitch", 1 },
+		MOVE_ALL_PITCHES_DOWN = { "moveAllPitches", -1 },
+		MOVE_ALL_PITCHES_UP = { "moveAllPitches", 1 },
+		
+		MOVE_VELOCITY_DOWN = { "moveVelocity", -1 },
+		MOVE_VELOCITY_UP = { "moveVelocity", 1 },
+		MOVE_ALL_VELOCITIES_DOWN = { "moveAllVelocities", -1 },
+		MOVE_ALL_VELOCITIES_UP = { "moveAllVelocities", 1 },
+		
+		MOVE_DURATION_DOWN = { "moveDuration", -1 },
+		MOVE_DURATION_UP = { "moveDuration", 1 },
+		MOVE_ALL_DURATIONS_DOWN = { "moveAllDurations", -1 },
+		MOVE_ALL_DURATIONS_UP = { "moveAllDurations", 1 },
+		
 	},
 	
 	-- DO NOT CHANGE. Numeric values for command-types that the user toggles between.
 	cmdnames = {
 	
-		BPM = -2, -- Global BPM
-		OFF = 128, -- MIDI NOTE-OFF
-		ON = 144, -- MIDI NOTE-ON
-		Poly = 160, -- MIDI poly-key pressure
-		Ctrl = 176, -- MIDI control change
-		Prog = 192, -- MIDI program change
-		Pres = 208, -- MIDI mono-key pressure
-		Bend = 224, -- MIDI pitch bend
-		Sys = 240, -- MIDI system message
-		
+		{ "BPM", -2 }, -- Global BPM
+		{ "OFF", 128 }, -- MIDI NOTE-OFF
+		{ "ON", 144 }, -- MIDI NOTE-ON
+		{ "Poly", 160 }, -- MIDI poly-key pressure
+		{ "Ctrl", 176 }, -- MIDI control change
+		{ "Prog", 192 }, -- MIDI program change
+		{ "Pres", 208 }, -- MIDI mono-key pressure
+		{ "Bend", 224 }, -- MIDI pitch bend
+		{ "Sys", 240 }, -- MIDI system message
+	
 	},
 
 	-- DO NOT CHANGE. Table of user-readable note values, indexed in ascending order.
