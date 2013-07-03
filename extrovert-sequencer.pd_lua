@@ -255,7 +255,7 @@ function Extrovert:buildGUI()
 	-- Generate side-panel tiles
 	local sidenames = {}
 	for _, v in ipairs(bar.tiles) do
-		table.insert(sidenames, v[4])
+		table.insert(sidenames, v[5])
 	end
 	buildGrid(
 		sidenames,
@@ -603,16 +603,36 @@ function Extrovert:updateEditorPanel()
 
 end
 
--- Update the control tile GUI
-function Extrovert:updateControlTiles(data)
+-- Update a single tile in the control bar
+function Extrovert:updateControlTile(key)
 
-	local tiles = self.prefs.gui.sidebar.tiles
+	-- Select tile by its key, or its corresponding variable name
+	local tile = false
+	if type(key) == "number" then
+		tile = self.prefs.gui.sidebar.tiles[key]
+	elseif type(key) == "string" then
+		for _, v in pairs(self.prefs.gui.sidebar.tiles) do
+			if key == v[3] then
+				tile = v
+			end
+		end
+	end
 	
-	for k, v in ipairs(tiles) do
+	if not tile then
+		pd.post("Control Tile Error!")
+		return false
+	end
 	
-		pd.send("extrovert-color-out", "list", rgbOutList(v[4], self.color[v[1]][v[2]], self.color[5][1]))
-		pd.send(v[4], "label", {v[3] .. " " .. string.rep(".", 6 - v[3]:len()) .. ": " .. data[k]})
-		
+	pd.send("extrovert-color-out", "list", rgbOutList(tile[5], self.color[tile[1]][tile[2]], self.color[5][1]))
+	pd.send(tile[5], "label", {tile[4] .. " " .. string.rep(".", 6 - tile[4]:len()) .. ": " .. tostring(self[tile[3]])})
+
+end
+
+-- Update every tile in the control bar
+function Extrovert:updateControlBar()
+
+	for k, _ in pairs(self.prefs.gui.sidebar.tiles) do
+		self:updateControlTile(k)
 	end
 
 end
@@ -639,20 +659,7 @@ end
 -- Update the entire sidebar panel
 function Extrovert:updateSidebarPanel()
 
-	self:updateControlTiles(
-		{
-			self.bpm,
-			self.clocktype,
-			self.quant,
-			self.octave,
-			self.key,
-			self.pointer,
-			self.channel,
-			self.command,
-			self.velocity,
-			self.duration
-		}
-	)
+	self:updateControlBar()
 	
 	self:updateHotseatTiles()
 
@@ -1243,6 +1250,7 @@ function Extrovert:moveToRelativeKey(spaces)
 	pd.post("Sequence " .. self.key)
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("key")
 	self:updatePagePanel()
 	self:updateEditorPanel()
 	
@@ -1259,14 +1267,19 @@ end
 function Extrovert:moveSequence(spaces)
 
 	local dest = (((self.key - 1) + spaces) % #self.seq) + 1
-	local s1 = self.seq[self.key]
-	local s2 = self.seq[dest]
 	
-	self.seq[self.key], self.seq[dest] = deepCopy(s1, {}), deepCopy(s2, {})
+	local s1 = deepCopy(self.seq[self.key], {})
+	local s2 = deepCopy(self.seq[dest], {})
+	
+	self.seq[self.key] = s2
+	self.seq[dest] = s1
+	
+	self.key = dest
 	
 	pd.post("Sequence " .. self.key)
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("key")
 	self:updatePagePanel()
 	self:updateEditorPanel()
 	
@@ -1286,7 +1299,7 @@ function Extrovert:shiftSpacing(dist)
 	
 	pd.post("Spacing: " .. self.spacing)
 	
-	self:updateControlTiles()
+	self:updateControlTile("spacing")
 
 end
 
@@ -1310,7 +1323,7 @@ function Extrovert:shiftQuant(dist)
 	
 	pd.post("Quantization: " .. self.quant)
 	
-	self:updateControlTiles()
+	self:updateControlTile("quant")
 	self:updateEditorPanel()
 
 end
@@ -1322,7 +1335,7 @@ function Extrovert:shiftDuration(dist)
 
 	pd.post("Duration: " .. self.duration)
 	
-	self:updateControlTiles()
+	self:updateControlTile("duration")
 
 end
 
@@ -1338,7 +1351,7 @@ function Extrovert:shiftCommand(dist)
 	
 	pd.post("Command: " .. self.command)
 	
-	self:updateControlTiles()
+	self:updateControlTile("command")
 
 end
 
@@ -1349,7 +1362,7 @@ function Extrovert:shiftChannel(dist)
 	
 	pd.post("Channel: " .. self.channel)
 	
-	self:updateControlTiles()
+	self:updateControlTile("channel")
 
 end
 
@@ -1360,7 +1373,7 @@ function Extrovert:shiftVelocity(dist)
 	
 	pd.post("Velocity: " .. self.velocity)
 	
-	self:updateControlTiles()
+	self:updateControlTile("velocity")
 
 end
 
@@ -1371,7 +1384,7 @@ function Extrovert:shiftOctave(dist)
 	
 	pd.post("Octave: " .. self.octave)
 	
-	self:updateControlTiles()
+	self:updateControlTile("octave")
 
 end
 
@@ -1717,6 +1730,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.offbutton = false -- Toggles whether a sequence should be turned off when pressed. If a page button is pressed instead, that page's sequences will all turn off.
 	self.gatebutton = false -- Toggles whether a given performative command should be interpreted immediately, or on the next quantization-based timing gate
+	self.loopbutton = false -- Toggles whether a sequence will merely loop a single button's worth of notes.
 	self.snapbutton = false -- Toggles whether to snap to the first tick in a given sub-segment, or continue from within that segment at a position comparable to the current pointer.
 	self.reversebutton = false -- Toggles whether the sequence will advance in reverse.
 	self.skipbutton = false -- Toggles whether to skip a number of ticks equal to the spacing value on every tick

@@ -96,16 +96,19 @@ return {
 			xmargin = 3, -- Horizontal margins (in pixels)
 			ymargin = 2, -- Vertical margins (in pixels)
 			
-			tiles = { -- DO NOT CHANGE. Names of sidebar buttons in the GUI.
+			tiles = { -- DO NOT CHANGE. Names and data for sidebar buttons in the GUI.
 			
-				{2, 1, "BPM", "extrovert-bpm-button"},
-				{2, 2, "Clock", "extrovert-clock-button"},
-				{3, 2, "Quant", "extrovert-quant-button"},
-				{3, 1, "Octave", "extrovert-octave-button"},
-				{2, 2, "CHAN", "extrovert-chan-button"},
-				{2, 1, "CMD", "extrovert-cmd-button"},
-				{2, 2, "VELO", "extrovert-velo-button"},
-				{2, 1, "DUR", "extrovert-dur-button"},
+				{2, 1, "bpm", "BPM", "extrovert-bpm-button"},
+				{2, 2, "clocktype", "CLOCK", "extrovert-clock-button"},
+				{3, 2, "key", "Seq", "extrovert-sequence-button"},
+				{3, 1, "pointer", "Tick", "extrovert-tick-button"},
+				{3, 2, "spacing", "Space", "extrovert-spacing-button"},
+				{3, 1, "quant", "Quant", "extrovert-quant-button"},
+				{2, 1, "octave", "Octave", "extrovert-octave-button"},
+				{2, 2, "channel", "CHAN", "extrovert-chan-button"},
+				{2, 1, "command", "CMD", "extrovert-cmd-button"},
+				{2, 2, "velocity", "VELO", "extrovert-velo-button"},
+				{2, 1, "duration", "DUR", "extrovert-dur-button"},
 				
 			},
 			
