@@ -80,7 +80,7 @@ return {
 				tick = 40, -- Tick segment
 				chan = 20, -- Channel segment
 				cmd = 40, -- Command segment
-				note = 50, -- Note segment
+				note = 55, -- Note segment
 				velo = 30, -- Velocity segment
 				dur = 30, -- Duration segment
 			},

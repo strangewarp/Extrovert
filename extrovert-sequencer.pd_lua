@@ -477,6 +477,12 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	
 	end
 	
+	if (type(tick) ~= "number")
+	and (tonumber(cmd) > 0)
+	then -- Give some color to skipped-tick rows that contain notes
+		bgcolor = self.color[3]
+	end
+	
 	if x == xcenter then -- Use regular-brightness colors in the active column
 		label = labelcolor[1]
 		bg = bgcolor[1]
@@ -488,6 +494,16 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	end
 	
 	if y == ycenter then
+	
+		if (type(tick) == "number")
+		and ((tick % (#self.seq[self.key].tick / self.gridx)) == 1)
+		then -- Highlight ticks that start a triggerable segment of the active sequence
+			labelcolor = self.color[8]
+			label = labelcolor[3]
+			bg = bgcolor[3]
+			bgalt = bgcolor[3]
+		end
+	
 		if x == xcenter then -- On the active editor item only, invert the background and label colors
 			bg, label = label, bg
 			bgalt = labelcolor[3]
@@ -496,6 +512,7 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 			bg = bgcolor[3]
 			bgalt = bgcolor[1]
 		end
+		
 	end
 	
 	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-tick", bg, label))
@@ -943,6 +960,7 @@ function Extrovert:cutSequence()
 	
 	self:addStateToHistory(self.seq[self.key].tick, self.key)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 
 end
@@ -1007,8 +1025,6 @@ function Extrovert:addSpaceToSequence()
 		table.insert(self.seq[self.key].tick, self.pointer, {})
 	end
 	
-	self.notepointer = 1
-	
 	self:normalizePointers()
 	
 	pd.post("Tick " .. self.pointer)
@@ -1047,6 +1063,7 @@ function Extrovert:deleteSpaceFromSequence()
 		
 		self:addStateToHistory(self.seq[self.key].tick, self.key)
 
+		self:updateControlTile("pointer")
 		self:updateMainEditorColumn()
 
 	else
@@ -1116,6 +1133,7 @@ function Extrovert:moveToPoint(p)
 
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 	
 end
@@ -1133,6 +1151,7 @@ function Extrovert:moveToInversePoint()
 
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 	
 end
@@ -1168,6 +1187,7 @@ function Extrovert:moveToRelativePoint(spaces)
 	
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 	
 end
@@ -1202,6 +1222,7 @@ function Extrovert:moveToPreviousPage()
 	
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 	
 end
@@ -1236,6 +1257,7 @@ function Extrovert:moveToNextPage()
 	
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 	
 end
@@ -1250,6 +1272,7 @@ function Extrovert:moveToRelativeKey(spaces)
 	pd.post("Sequence " .. self.key)
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:updateControlTile("pointer")
 	self:updateControlTile("key")
 	self:updatePagePanel()
 	self:updateEditorPanel()
@@ -1295,7 +1318,7 @@ end
 -- Shift self.spacing by a given amount
 function Extrovert:shiftSpacing(dist)
 
-	self.spacing = math.max(1, self.spacing + (self.quant * dist))
+	self.spacing = math.max(0, self.spacing + (self.quant * dist))
 	
 	pd.post("Spacing: " .. self.spacing)
 	
@@ -1307,7 +1330,7 @@ end
 function Extrovert:shiftQuant(dist)
 
 	if dist < 0 then
-		dist = 1 / (abs(dist) + 1)
+		dist = 1 / (math.abs(dist) + 1)
 	else
 		dist = dist + 1
 	end
@@ -1509,6 +1532,12 @@ function Extrovert:moveNote(spaces)
 	
 	end
 
+	pd.post("Sequence " .. self.key)
+	pd.post("Moved note by " .. spaces .. " ticks")
+
+	self:updateControlTile("pointer")
+	self:updateMainEditorColumn()
+
 end
 
 -- Shift the positions of all notes to adjacent pointers
@@ -1528,6 +1557,7 @@ function Extrovert:moveAllNotes(spaces)
 	pd.post("Sequence " .. self.key)
 	pd.post("Moved all notes by " .. spaces .. " ticks")
 
+	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 
 end
@@ -1542,6 +1572,11 @@ function Extrovert:parsePianoNote(note)
 	
 	-- Insert the resulting note into the active tick of the active sequence
 	table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note, self.velocity, self.duration})
+	
+	-- Move the pointer forward by the current spacing value
+	self.pointer = (((self.pointer - 1) + self.spacing) % #self.seq[self.key].tick) + 1
+
+	self:normalizePointers()
 	
 	pd.post("Sequence " .. self.key .. ", Tick " .. self.pointer .. ", Point " .. self.notepointer)
 	pd.post("Inserted note " .. note)
