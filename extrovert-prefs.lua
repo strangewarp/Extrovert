@@ -494,8 +494,8 @@ return {
 	
 		NAVIGATE_UP = { "moveToRelativePoint", -1 },
 		NAVIGATE_DOWN = { "moveToRelativePoint", 1 },
-		NAVIGATE_PREVPAGE = { "moveToPreviousPage" },
-		NAVIGATE_NEXTPAGE = { "moveToNextPage" },
+		NAVIGATE_PREVPAGE = { "moveByPage", -1 },
+		NAVIGATE_NEXTPAGE = { "moveByPage", 1 },
 		NAVIGATE_HOME = { "moveToPoint", 1 },
 		NAVIGATE_INVERSE = { "moveToInversePoint" },
 		

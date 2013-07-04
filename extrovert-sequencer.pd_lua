@@ -484,16 +484,6 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	end
 	
 	if x == xcenter then -- Use regular-brightness colors in the active column
-		label = labelcolor[1]
-		bg = bgcolor[1]
-		bgalt = bgcolor[3]
-	else -- Use darkened colors in the non-active columns
-		label = labelcolor[2]
-		bg = bgcolor[2]
-		bgalt = bgcolor[1]
-	end
-	
-	if y == ycenter then
 	
 		if (type(tick) == "number")
 		and ((tick % (#self.seq[self.key].tick / self.gridx)) == 1)
@@ -502,8 +492,19 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 			label = labelcolor[3]
 			bg = bgcolor[3]
 			bgalt = bgcolor[3]
+		else -- Use regular shading for regular ticks
+			label = labelcolor[1]
+			bg = bgcolor[1]
+			bgalt = bgcolor[3]
 		end
+		
+	else -- Use darkened colors in the non-active columns
+		label = labelcolor[2]
+		bg = bgcolor[2]
+		bgalt = bgcolor[1]
+	end
 	
+	if y == ycenter then
 		if x == xcenter then -- On the active editor item only, invert the background and label colors
 			bg, label = label, bg
 			bgalt = labelcolor[3]
@@ -512,7 +513,6 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 			bg = bgcolor[3]
 			bgalt = bgcolor[1]
 		end
-		
 	end
 	
 	pd.send("extrovert-color-out", "list", rgbOutList(itemname .. "-tick", bg, label))
@@ -704,7 +704,7 @@ function Extrovert:normalizePointers()
 
 	-- Normalize tick pointer
 	if self.pointer > #self.seq[self.key].tick then
-		self.pointer = #self.seq[self.key].tick
+		self.pointer = math.max(1, (#self.seq[self.key].tick - self.quant) + 1) -- math.max compensates for cases where the quantization is larger than the sequence
 	end
 	
 	-- Normalize note pointer
@@ -1192,44 +1192,10 @@ function Extrovert:moveToRelativePoint(spaces)
 	
 end
 
--- Move to the previous page of the active sequence
-function Extrovert:moveToPreviousPage()
+-- Move to an adjacent page of the active sequence
+function Extrovert:moveByPage(dir)
 
-	local visibleskip = 2
-	if self.quant == 1 then
-		visibleskip = 1
-	end
-	
-	local contents = (math.floor(self.prefs.gui.editor.rows / 2) * self.quant) / visibleskip
-	local dist = 0
-	
-	for i = self.pointer, self.pointer - contents, self.quant * -1 do
-	
-		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
-		
-		dist = dist + 1
-		
-		if (self.seq[self.key].tick[adjpoint][1] ~= nil) -- If there are notes in the tick...
-		and (#self.seq[self.key].tick[adjpoint] > 1) -- And the number of notes is greater than 1...
-		then
-			dist = dist - (#self.seq[self.key].tick[adjpoint] - 1) -- Decrease tick-dist-tracking by the number of extra ticks
-		end
-		
-	end
-
-	self.pointer = (((self.pointer - 1) - (dist * self.quant)) % #self.seq[self.key].tick) + 1
-	
-	self:normalizePointers()
-	
-	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
-	
-	self:updateControlTile("pointer")
-	self:updateMainEditorColumn()
-	
-end
-
--- Move to the next page of the active sequence
-function Extrovert:moveToNextPage()
+	dir = math.max(-1, math.min(1, dir))
 
 	local visibleskip = 2
 	if self.quant == 1 then
@@ -1239,11 +1205,11 @@ function Extrovert:moveToNextPage()
 	local contents = (math.floor(self.prefs.gui.editor.rows / 2) * self.quant) / visibleskip
 	local dist = 0
 	
-	for i = self.pointer, self.pointer + contents, self.quant do
+	for i = self.pointer, self.pointer + (contents * dir), self.quant * dir do
 	
-		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
-		
 		dist = dist + 1
+		
+		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
 		
 		if (self.seq[self.key].tick[adjpoint][1] ~= nil) -- If there are notes in the tick...
 		and (#self.seq[self.key].tick[adjpoint] > 1) -- And the number of notes is greater than 1...
@@ -1253,7 +1219,7 @@ function Extrovert:moveToNextPage()
 		
 	end
 
-	self.pointer = (((self.pointer - 1) + (dist * self.quant)) % #self.seq[self.key].tick) + 1
+	self.pointer = (((self.pointer - 1) + ((dist * self.quant) * dir)) % #self.seq[self.key].tick) + 1
 	
 	self:normalizePointers()
 	
