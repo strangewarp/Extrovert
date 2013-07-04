@@ -1200,23 +1200,24 @@ function Extrovert:moveToPreviousPage()
 		visibleskip = 1
 	end
 	
-	local contents = math.floor(self.prefs.gui.editor.rows / 2) * self.quant
-	local baseskip = math.floor(contents / visibleskip)
-	local extranotes = 0
+	local contents = (math.floor(self.prefs.gui.editor.rows / 2) * self.quant) / visibleskip
+	local dist = 0
 	
-	for i = self.pointer, self.pointer - contents, -1 do
+	for i = self.pointer, self.pointer - contents, self.quant * -1 do
 	
 		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
 		
-		if (self.seq[self.key].tick[adjpoint][1] ~= nil)
-		and (#self.seq[self.key].tick[adjpoint] > 1)
+		dist = dist + 1
+		
+		if (self.seq[self.key].tick[adjpoint][1] ~= nil) -- If there are notes in the tick...
+		and (#self.seq[self.key].tick[adjpoint] > 1) -- And the number of notes is greater than 1...
 		then
-			extranotes = extranotes + (#self.seq[self.key].tick[adjpoint] - 1)
+			dist = dist - (#self.seq[self.key].tick[adjpoint] - 1) -- Decrease tick-dist-tracking by the number of extra ticks
 		end
 		
 	end
 
-	self.pointer = ((((self.pointer - 1) - baseskip) + extranotes) % #self.seq[self.key].tick) + 1
+	self.pointer = (((self.pointer - 1) - (dist * self.quant)) % #self.seq[self.key].tick) + 1
 	
 	self:normalizePointers()
 	
@@ -1235,23 +1236,24 @@ function Extrovert:moveToNextPage()
 		visibleskip = 1
 	end
 
-	local contents = math.ceil(self.prefs.gui.editor.rows / 2) * self.quant
-	local baseskip = math.ceil(contents / visibleskip)
-	local extranotes = 0
+	local contents = (math.floor(self.prefs.gui.editor.rows / 2) * self.quant) / visibleskip
+	local dist = 0
 	
-	for i = self.pointer, self.pointer + contents do
+	for i = self.pointer, self.pointer + contents, self.quant do
 	
 		local adjpoint = ((i - 1) % #self.seq[self.key].tick) + 1
 		
-		if (self.seq[self.key].tick[adjpoint][1] ~= nil)
-		and (#self.seq[self.key].tick[adjpoint] > 1)
+		dist = dist + 1
+		
+		if (self.seq[self.key].tick[adjpoint][1] ~= nil) -- If there are notes in the tick...
+		and (#self.seq[self.key].tick[adjpoint] > 1) -- And the number of notes is greater than 1...
 		then
-			extranotes = extranotes + (#self.seq[self.key].tick[adjpoint] - 1)
+			dist = dist - (#self.seq[self.key].tick[adjpoint] - 1) -- Decrease tick-dist-tracking by the number of extra ticks
 		end
 		
 	end
 
-	self.pointer = ((((self.pointer - 1) + baseskip) - extranotes) % #self.seq[self.key].tick) + 1
+	self.pointer = (((self.pointer - 1) + (dist * self.quant)) % #self.seq[self.key].tick) + 1
 	
 	self:normalizePointers()
 	
