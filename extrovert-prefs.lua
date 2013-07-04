@@ -100,10 +100,10 @@ return {
 			
 				{2, 1, "bpm", "BPM", "extrovert-bpm-button"},
 				{2, 2, "clocktype", "CLOCK", "extrovert-clock-button"},
-				{3, 2, "key", "Seq", "extrovert-sequence-button"},
-				{3, 1, "pointer", "Tick", "extrovert-tick-button"},
+				{3, 1, "key", "Seq", "extrovert-sequence-button"},
+				{3, 3, "pointer", "Tick", "extrovert-tick-button"},
 				{3, 2, "spacing", "Space", "extrovert-spacing-button"},
-				{3, 1, "quant", "Quant", "extrovert-quant-button"},
+				{3, 2, "quant", "Quant", "extrovert-quant-button"},
 				{2, 1, "octave", "Octave", "extrovert-octave-button"},
 				{2, 2, "channel", "CHAN", "extrovert-chan-button"},
 				{2, 1, "command", "CMD", "extrovert-cmd-button"},
@@ -579,7 +579,8 @@ return {
 	-- DO NOT CHANGE. Numeric values for command-types that the user toggles between.
 	cmdnames = {
 	
-		{ "BPM", -2 }, -- Global BPM
+		{ "GBPM", -20 }, -- Global BPM
+		{ "LBPM", -10 }, -- Local BPM
 		{ "OFF", 128 }, -- MIDI NOTE-OFF
 		{ "ON", 144 }, -- MIDI NOTE-ON
 		{ "Poly", 160 }, -- MIDI poly-key pressure
@@ -609,5 +610,5 @@ return {
 		"B",
 		
 	},
-
+	
 }

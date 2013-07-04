@@ -404,7 +404,9 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	then -- Color notes and commands differently from empty and skipped ticks
 		if rangeCheck(cmd, 128, 159) then
 			bgcolor = self.color[2]
-		elseif rangeCheck(cmd, 160, 255) then
+		elseif rangeCheck(cmd, 160, 255)
+		or (cmd == -10)
+		then
 			bgcolor = self.color[3]
 		end
 	else
@@ -623,6 +625,8 @@ end
 -- Update a single tile in the control bar
 function Extrovert:updateControlTile(key)
 
+	local outval = ""
+
 	-- Select tile by its key, or its corresponding variable name
 	local tile = false
 	if type(key) == "number" then
@@ -640,8 +644,21 @@ function Extrovert:updateControlTile(key)
 		return false
 	end
 	
+	outval = self[tile[3]]
+	
+	if (tile[4] == "CMD")
+	and self.friendlyview
+	then -- Special case for COMMAND tile: in friendly mode, replace the command number with the command name
+		for _, v in pairs(self.cmdnames) do
+			if v[2] == self[tile[3]] then
+				outval = v[1]
+				break
+			end
+		end
+	end
+	
 	pd.send("extrovert-color-out", "list", rgbOutList(tile[5], self.color[tile[1]][tile[2]], self.color[5][1]))
-	pd.send(tile[5], "label", {tile[4] .. " " .. string.rep(".", 6 - tile[4]:len()) .. ": " .. tostring(self[tile[3]])})
+	pd.send(tile[5], "label", {tile[4] .. " " .. string.rep(".", 6 - tile[4]:len()) .. ": " .. tostring(outval)})
 
 end
 
@@ -1312,7 +1329,7 @@ function Extrovert:shiftQuant(dist)
 		self.quant = self.quant * (dist - 1)
 	end
 	
-	pd.post("Quantization: " .. self.quant)
+	pd.post("Quantization: " .. self.quant .. " (" .. math.max(1, self.quant / 96) .. "/" .. math.max(1, 96 / self.quant) .. " note)")
 	
 	self:updateControlTile("quant")
 	self:updateEditorPanel()
@@ -1371,7 +1388,7 @@ end
 -- Shift self.octave by a given amount
 function Extrovert:shiftOctave(dist)
 
-	self.octave = (self.octave + dist) % 11
+	self.octave = (self.octave + dist) % 12
 	
 	pd.post("Octave: " .. self.octave)
 	
@@ -1538,8 +1555,13 @@ function Extrovert:parsePianoNote(note)
 		note = note - 12
 	end
 	
-	-- Insert the resulting note into the active tick of the active sequence
-	table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note, self.velocity, self.duration})
+	if self.command == -20 then -- On Global BPM command: translate the note+velocity into the global BPM value
+		self.bpm = note + self.velocity
+	elseif self.command == -10 then -- On Local BPM command: translate the note+velocity into a local BPM value
+		table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note + self.velocity, 0, 0})
+	else -- Insert the note into the active tick of the active sequence
+		table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note, self.velocity, self.duration})
+	end
 	
 	-- Move the pointer forward by the current spacing value
 	self.pointer = (((self.pointer - 1) + self.spacing) % #self.seq[self.key].tick) + 1
