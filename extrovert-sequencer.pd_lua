@@ -512,8 +512,8 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 			bgalt = labelcolor[3]
 		else -- Use brightened colors on the active row
 			label = labelcolor[3]
-			bg = bgcolor[3]
-			bgalt = bgcolor[1]
+			bg = bgcolor[1]
+			bgalt = bgcolor[3]
 		end
 	end
 	
@@ -672,7 +672,7 @@ function Extrovert:updateControlBar()
 end
 
 -- Update the savefile hotseat tile GUI
-function Extrovert:updateHotseatTiles()
+function Extrovert:updateHotseatBar()
 
 	for k, v in ipairs(self.hotseats) do
 	
@@ -695,7 +695,7 @@ function Extrovert:updateSidebarPanel()
 
 	self:updateControlBar()
 	
-	self:updateHotseatTiles()
+	self:updateHotseatBar()
 
 end
 
@@ -712,6 +712,75 @@ function Extrovert:populateGUI()
 	
 	self:updateSidebarPanel()
 	
+end
+
+
+
+-- Save current table-data as a folder of MIDI files, via the [midifile] apparatus
+function Extrovert:saveData()
+
+	pd.send("extrovert-midiwrite-commands", "list", {"DIRNAME", self.hotseats[self.activeseat]})
+	
+	for fnum, seq in ipairs(self.seq) do
+	
+		pd.send("extrovert-midiwrite-commands", "list", {"FILENUM", fnum})
+		
+		-- Make a preliminary pass over the sequence's contents, translating all note-durations into appropriately positioned note-offs
+		local outseq = deepCopy(seq.tick, {})
+		for tick, notes in ipairs(seq) do
+		
+			for _, v in ipairs(notes) do
+				if v[2] == 144 then
+					local inpoint = 1
+					if v[5] == 0 then
+						inpoint = #outseq[tick] + 1
+					end
+					table.insert(outseq[(((tick + v[5]) - 1) % #seq.tick) + 1], inpoint, {v[1], 128, v[3], v[4], 0})
+				end
+			end
+		
+		end
+		
+		-- Send the reorganized sequence to the [midifile] apparatus, one element at a time
+		for tick, notes in ipairs(outseq) do
+		
+			if notes[1] ~= nil then -- Send all commands from within the tick, if any
+				for _, v in ipairs(notes) do
+					pd.send("extrovert-midiwrite-commands", "list", {"MSG", v[1] + v[2], v[3], v[4]})
+				end
+			end
+			
+			if tick < #seq then -- Send a NEXTTICK command, unless we're on the last tick of the sequence
+				pd.send("extrovert-midiwrite-commands", "list", {"NEXTTICK"})
+			end
+		
+		end
+	
+		pd.send("extrovert-midiwrite-commands", "list", {"SAVE"})
+		
+		pd.post("Saved sequence " .. fnum)
+	
+	end
+	
+	pd.post("Saved data to: " .. self.hotseats[self.activeseat])
+
+end
+
+function Extrovert:loadData()
+
+
+
+end
+
+-- Toggle to a saveload filename within the hotseats list
+function Extrovert:toggleToHotseat(seat)
+
+	self.activeseat = seat
+	
+	pd.post("Saveload hotseat: " .. self.activeseat .. ": " .. self.hotseats[self.activeseat])
+	
+	self:updateHotseatBar()
+
 end
 
 
@@ -767,14 +836,20 @@ function Extrovert:reviveHistoryData()
 	-- Ensure that tables are copied, rather than references
 	local v = deepCopy(self.history[self.undopoint], {})
 	
-	if v[3] then
-		if v[4] then
-			self.seq[v[2]].tick[v[3]][v[4]] = v[1]
+	if v[2] then
+		if v[3] then
+			if v[4] then
+				self.seq[v[2]].tick[v[3]][v[4]] = v[1]
+			else
+				self.seq[v[2]].tick[v[3]] = v[1]
+			end
 		else
-			self.seq[v[2]].tick[v[3]] = v[1]
+			self.seq[v[2]].tick = v[1]
 		end
 	else
-		self.seq[v[2]].tick = v[1]
+		for k, s in pairs(v[1]) do
+			self.seq[k].tick = s
+		end
 	end
 	
 end
@@ -839,9 +914,21 @@ function Extrovert:addStateToHistory(item, key, tick, note)
 	end
 	
 	-- Copy over all given variables to the history table's most recent index
-	self.history[#self.history + 1] = deepCopy({item, key, tick or false, note or false}, {})
+	self.history[#self.history + 1] = deepCopy({item, key or false, tick or false, note or false}, {})
 	
 	self.undopoint = #self.history -- Set self.undopoint to the most recent index
+	
+end
+
+-- Add multiple sequences to a single history slot
+function Extrovert:addSeqsToHistory(keys)
+
+	local undoseqs = {}
+	for _, v in pairs(keys) do
+		undoseqs[v] = self.seq[v].tick
+	end
+	
+	self:addStateToHistory(undoseqs)
 	
 end
 
@@ -1275,6 +1362,7 @@ end
 function Extrovert:moveSequence(spaces)
 
 	local dest = (((self.key - 1) + spaces) % #self.seq) + 1
+	local oldkey = self.key
 	
 	local s1 = deepCopy(self.seq[self.key], {})
 	local s2 = deepCopy(self.seq[dest], {})
@@ -1287,6 +1375,8 @@ function Extrovert:moveSequence(spaces)
 	pd.post("Sequence " .. self.key)
 	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
 	
+	self:addSeqsToHistory({oldkey, dest})
+
 	self:updateControlTile("key")
 	self:updatePagePanel()
 	self:updateEditorPanel()
@@ -1435,6 +1525,8 @@ function Extrovert:moveAllBytes(bname, bytepoint, dist, index, limit)
 	pd.post("Sequence " .. self.key)
 	pd.post("Shifted all " .. bname .. " values by " .. dist)
 
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key)
+
 	self:updateMainEditorColumn()
 
 end
@@ -1443,6 +1535,8 @@ end
 function Extrovert:moveChannel(dist)
 
 	self:moveByte("Channel", 1, dist, 0, 16, self.pointer, self.notepointer)
+
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer, self.notepointer)
 
 	self:updateMainEditorColumn()
 
@@ -1453,6 +1547,8 @@ function Extrovert:movePitch(dist)
 
 	self:moveByte("Pitch", 3, dist * self.velocity, 0, 128, self.pointer, self.notepointer)
 
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer, self.notepointer)
+
 	self:updateMainEditorColumn()
 
 end
@@ -1462,6 +1558,8 @@ function Extrovert:moveVelocity(dist)
 
 	self:moveByte("Velocity", 4, dist * self.velocity, 0, 128, self.pointer, self.notepointer)
 	
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer, self.notepointer)
+
 	self:updateMainEditorColumn()
 
 end
@@ -1471,6 +1569,8 @@ function Extrovert:moveDuration(dist)
 
 	self:moveByte("Duration", 5, dist * self.quant, 1, #self.seq[self.key].tick, self.pointer, self.notepointer)
 	
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer, self.notepointer)
+
 	self:updateMainEditorColumn()
 
 end
@@ -1520,6 +1620,8 @@ function Extrovert:moveNote(spaces)
 	pd.post("Sequence " .. self.key)
 	pd.post("Moved note by " .. spaces .. " ticks")
 
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key)
+
 	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 
@@ -1541,6 +1643,8 @@ function Extrovert:moveAllNotes(spaces)
 	
 	pd.post("Sequence " .. self.key)
 	pd.post("Moved all notes by " .. spaces .. " ticks")
+
+	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key)
 
 	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()

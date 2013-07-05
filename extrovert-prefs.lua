@@ -492,6 +492,9 @@ return {
 	-- DO NOT CHANGE. Table of references and args that joins the command names to their corresponding functions.
 	cmdfunctions = {
 	
+		SAVE = { "saveData" },
+		LOAD = { "loadData" },
+	
 		NAVIGATE_UP = { "moveToRelativePoint", -1 },
 		NAVIGATE_DOWN = { "moveToRelativePoint", 1 },
 		NAVIGATE_PREVPAGE = { "moveByPage", -1 },
