@@ -1173,7 +1173,7 @@ function Extrovert:deleteSpaceFromSequence()
 	else
 	
 		pd.post("Sequence must always contain at least " .. self.gridx .. " ticks!")
-		pd.post("Could not delete " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. "ticks from the sequence.")
+		pd.post("Could not delete " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " ticks from the sequence.")
 	
 	end
 	
@@ -1372,8 +1372,8 @@ function Extrovert:moveSequence(spaces)
 	
 	self.key = dest
 	
-	pd.post("Sequence " .. self.key)
-	pd.post("Tick " .. self.pointer .. " - Point " .. self.notepointer)
+	pd.post("Switched sequences " .. oldkey .. " and " .. dest)
+	pd.post("Active sequence: " .. self.key)
 	
 	self:addSeqsToHistory({oldkey, dest})
 
@@ -1651,6 +1651,17 @@ function Extrovert:moveAllNotes(spaces)
 
 end
 
+-- Toggle whether or not keyboard-piano notes are recorded
+function Extrovert:togglePianoRecording()
+
+	self.acceptpiano = not self.acceptpiano
+	
+	pd.post("Keyboard-piano recording: " .. tostring(self.acceptpiano))
+	
+	self:updateControlTile("acceptpiano")
+	
+end
+
 -- Send a note from the computer-keyboard-piano to the relevant sequence
 function Extrovert:parsePianoNote(note)
 
@@ -1659,25 +1670,32 @@ function Extrovert:parsePianoNote(note)
 		note = note - 12
 	end
 	
-	if self.command == -20 then -- On Global BPM command: translate the note+velocity into the global BPM value
-		self.bpm = note + self.velocity
-	elseif self.command == -10 then -- On Local BPM command: translate the note+velocity into a local BPM value
-		table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note + self.velocity, 0, 0})
-	else -- Insert the note into the active tick of the active sequence
-		table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note, self.velocity, self.duration})
+	-- Send an example note, regardless of whether notes are being recorded
+	pd.send("extrovert-examplenote", "list", {note, self.velocity, self.channel})
+	
+	if self.acceptpiano == true then -- Only record a piano-key command if piano-key recording is enabled
+	
+		if self.command == -20 then -- On Global BPM command: translate the note+velocity into the global BPM value
+			self.bpm = note + self.velocity
+		elseif self.command == -10 then -- On Local BPM command: translate the note+velocity into a local BPM value
+			table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note + self.velocity, 0, 0})
+		else -- Insert the note into the active tick of the active sequence
+			table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note, self.velocity, self.duration})
+		end
+		
+		-- Move the pointer forward by the current spacing value
+		self.pointer = (((self.pointer - 1) + self.spacing) % #self.seq[self.key].tick) + 1
+
+		self:normalizePointers()
+		
+		pd.post("Sequence " .. self.key .. ", Tick " .. self.pointer .. ", Point " .. self.notepointer)
+		pd.post("Inserted note " .. note)
+		
+		self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer)
+
+		self:updateMainEditorColumn()
+		
 	end
-	
-	-- Move the pointer forward by the current spacing value
-	self.pointer = (((self.pointer - 1) + self.spacing) % #self.seq[self.key].tick) + 1
-
-	self:normalizePointers()
-	
-	pd.post("Sequence " .. self.key .. ", Tick " .. self.pointer .. ", Point " .. self.notepointer)
-	pd.post("Inserted note " .. note)
-	
-	self:addStateToHistory(self.seq[self.key].tick[self.pointer], self.key, self.pointer)
-
-	self:updateMainEditorColumn()
 	
 end
 
@@ -1781,14 +1799,11 @@ function Extrovert:initialize(sel, atoms)
 	-- 2. Monome button
 	-- 3. Monome ADC
 	-- 4. MIDI CLOCK IN
-	-- 5. Gate bangs
-	-- 6. MIDI SAVEFILE IN commands
-	self.inlets = 6
+	-- 5. MIDI SAVEFILE IN commands
+	self.inlets = 5
 	
-	-- 1. Note-send out
-	-- 2. Monome LED-command out
-	-- 3. Destination / color list / message color list
-	self.outlets = 3
+	-- No outlets. Everything is done through pd.send() instead.
+	self.outlets = 0
 	
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
 	
@@ -1847,7 +1862,9 @@ function Extrovert:initialize(sel, atoms)
 	self.spacing = 12 -- Spacing between notes, in ticks, when notes are entered
 	self.quant = 24 -- Current quantization value (1 = tick, 3 = thirtysecond note, 6 = sixteenth note, 12 = eighth note, 24 = quarter note, 48 = half note, 96 = whole note, etc.)
 	
-	self.friendlyview = true -- Boolean to track friendly-note-view mode in the editor: true for friendly view; false for hacker view
+	self.friendlyview = true -- Track friendly-note-view mode in the editor: true for friendly view; false for hacker view
+	
+	self.acceptpiano = true -- Track piano-note-accepting mode in the editor: true to record and play piano notes; false to play without recording
 	
 	self.clocktype = self.prefs.midi.clocktype -- User-defined MIDI CLOCK type. "master" / "slave" / "none"
 	
