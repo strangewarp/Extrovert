@@ -27,7 +27,7 @@ return {
 		"default",
 		
 	},
-
+	
 	monome = {
 	
 		height = 8, -- Monome height (in buttons)
@@ -152,7 +152,8 @@ return {
 		
 		SAVE = {
 			"Shift",
-			"?",
+			"Tab",
+			"~",
 			"|",
 		},
 		

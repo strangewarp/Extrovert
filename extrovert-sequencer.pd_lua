@@ -721,6 +721,8 @@ function Extrovert:saveData()
 
 	pd.send("extrovert-midiwrite-commands", "list", {"DIRNAME", self.hotseats[self.activeseat]})
 	
+	pd.send("extrovert-midiwrite-commands", "list", {"FRAMES_PER_SECOND", 60000 / (self.bpm * 24)})
+	
 	for fnum, seq in ipairs(self.seq) do
 	
 		pd.send("extrovert-midiwrite-commands", "list", {"FILENUM", fnum})
@@ -766,9 +768,106 @@ function Extrovert:saveData()
 
 end
 
+-- Load a MIDI savefile folder, via the [midifile] apparatus
 function Extrovert:loadData()
 
-
+	pd.send("extrovert-midiread-commands", "list", {"DIRNAME", self.hotseats[self.activeseat]})
+	
+	-- This looks like an infinite loop, but isn't:
+	-- FILENUM and NEXT_TICK commands trigger a dataflow chain that brings commands to [extrovert-sequencer]'s 6th inlet, which increase self.loadkey as they are received.
+	while self.loadkey <= ((self.gridy - 2) * self.gridx) do
+	
+		self.loadseq[self.loadkey] = {
+			tick = {}
+		}
+		
+		pd.post("File Load: Loading track " .. self.loadkey)
+		
+		pd.send("extrovert-midiread-commands", "list", {"FILENUM", self.loadkey})
+		
+		pd.send("extrovert-midiread-commands", "list", {"NEXT_TICK"})
+		
+	end
+	
+	self.loadkey = 1
+	
+	pd.post("File Load: Reached end of savefolder!")
+	
+	-- Normalize all noteoffs into note-durations
+	for k, v in ipairs(self.loadseq) do
+	
+		pd.post("Normalizing commands and channels (sequence " .. k .. ")...")
+	
+		-- Split all command-bytes into two values: channel and command
+		for i = 1, #v.tick do
+			if v.tick[i][1] ~= nil then
+				for slot, note in pairs(v.tick[i]) do
+				
+					local command = note[1]
+					local chan = command % 16
+					command = command - chan
+					
+					self.loadseq[k].tick[i][slot][1] = {chan, command, note[2], note[3]}
+					
+				end
+			end
+		end
+	
+		pd.post("Normalizing durations (sequence " .. k .. ")...")
+	
+		-- Replace all note-offs with note-durations
+		for i = 1, #v.tick do
+			if v.tick[i][1] ~= nil then
+			
+				for slot, note in pairs(v.tick[i]) do
+					if rangeCheck(note[1], 144, 159) then
+				
+						local cmd = v.tick[i][1]
+						local chan = cmd[1] % 16
+						local pitch = cmd[2]
+					
+						for n = 1, #v.tick do
+						
+							local check = (((i + n) - 1) % #v.tick) + 1
+							
+							if v.tick[check][1] ~= nil then
+							
+								for subslot, subnote in pairs(v.tick[check]) do
+								
+									if rangeCheck(subnote[1], 128, 143)
+									and (subnote[2] == pitch)
+									then
+										table.insert(self.loadseq[k].tick[i][slot], n) -- Insert duration value at the end of the original note table
+										table.remove(self.loadseq[k].tick[check], subslot) -- Remove twinned noteoff value from the loadseq table
+									end
+								
+								end
+							
+							end
+							
+						end
+					
+					end
+				end
+			
+			end
+		end
+		
+		-- Reset the sequence's flags and pointers, to prevent nullpointerexceptions if someone decides to load a file while sequences are running
+		self:resetSequence(k)
+	
+		-- Copy all ticks from loadseq to seq
+		self.seq[k].tick = deepCopy(v.tick, {})
+		
+	end
+	
+	self.loadseq = {} -- Unset loadseq, to cut down on memory bloat
+	
+	pd.post("Loaded savefolder \"" .. self.hotseats[self.activeseat] .. "\"!")
+	
+	self:makeCleanHistory() -- Reset undo history
+	
+	self:updateEditorPanel()
 
 end
 
@@ -1827,8 +1926,11 @@ function Extrovert:initialize(sel, atoms)
 		table.insert(self.color, modColor(v))
 	end
 	
-	self.loadseq = 0 -- Sequence number for the load function
-	self.loadtick = 0 -- Tick number for the load function
+	self.loadseq = {} -- Temp table for loading savedata
+	self.loadkey = 1 -- Sequence number for the load function
+	self.loadpointer = 1 -- Tick number for the load function
+	self.tpq = 0 -- Ticks per quarter note; for establishing BPM from a MIDI file
+	self.mspq = 0 -- Microseconds per quarter note; for establishing BPM from a MIDI file
 	
 	self.gridx = self.prefs.monome.width -- Monome X buttons
 	self.gridy = self.prefs.monome.height -- Monome Y buttons
@@ -1963,44 +2065,34 @@ function Extrovert:in_6_list(list)
 	
 		table.remove(list, 1)
 		
-		if rangeCheck(list[1], 144, 159)
-		and (list[3] == 0)
-		then -- Reformat [midifile]'s weird noteoff format into proper MIDI noteoffs
-			list[1] = list[1] - 16
-			list[3] = 127
-		end
-		
 		pd.post("File Load: Tick " .. self.loadtick .. ", command " .. table.concat(list, " "))
 		
-		table.insert(self.seq[loadseq].tick[loadtick], list)
+		table.insert(self.loadseq[self.loadkey].tick[self.loadpointer], list)
 		
-		pd.send("extrovert-midiread-commands", "list", {"NEXTITEM"})
+	elseif list[1] == "TICKS_PER_QUARTER_NOTE" then -- Get ticks-per-quarter-note value
 	
-	elseif list[1] == "TICK" then -- Parse tick commands
+		self.tpq = list[2]
+		
+	elseif list[1] == "MS_PER_QUARTER_NOTE" then -- Get microseconds-per-quarter-note value
 	
-		loadtick = list[2]
-		pd.send("extrovert-midiread-commands", "list", {"NEXTITEM"})
+		self.mspq = list[2]
 	
+	elseif list[1] == "TICK" then -- Expand the currently-loading sequence to accomodate the new tick
+	
+		self.loadpointer = list[2] + 1
+		
+		self.loadseq[self.loadkey].tick[self.loadpointer] = {}
+		
 	elseif list[1] == "FILE_END" then -- Parse file-end commands
 	
-		self.loadseq = self.loadseq + 1
-		self.loadtick = 0
+		self.loadpointer = 1
+		self.loadkey = self.loadkey + 1
 		
 		pd.post("File Load: Received FILE_END")
-		
-		if self.loadseq < ((self.gridy - 2) * self.gridx) then
-			pd.post("File Load: Loading track " .. self.loadseq)
-			pd.send("extrovert-midiread-commands", "list", {"FILENUM", self.loadseq})
-			pd.send("extrovert-midiread-commands", "list", {"NEXTITEM"})
-		else
-			pd.post("File Load: Reached end of savefolder!")
-			self.loadseq = 0
-		end
 		
 	else -- Skip and report upon unknown commands
 	
 		pd.post("File Load: Received unknown command: " .. table.concat(list, " "))
-		pd.send("extrovert-midiread-commands", "list", {"NEXTITEM"})
 		
 	end
 
