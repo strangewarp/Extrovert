@@ -28,6 +28,12 @@ return {
 		
 	},
 	
+	dirs = { -- User directories
+	
+		saves = "C:/Users/Christian/Documents/MUSIC_STAGING/", -- The path of the directory that holds the user's savefolders.
+	
+	},
+	
 	monome = {
 	
 		height = 8, -- Monome height (in buttons)
