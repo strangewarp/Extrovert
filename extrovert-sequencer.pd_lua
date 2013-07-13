@@ -718,56 +718,10 @@ end
 
 
 
--- Save current table-data as a folder of MIDI files, via the [midifile] apparatus
--- DEPRECATED OLD BAD FUNCTION. REMOVE REMOVE REMOVE
+-- Save current table-data as a folder of MIDI files, via the MIDI.lua apparatus
 function Extrovert:saveData()
 
-	pd.send("extrovert-midiwrite-commands", "list", {"DIRNAME", self.hotseats[self.activeseat]})
 	
-	pd.send("extrovert-midiwrite-commands", "list", {"FRAMES_PER_SECOND", 60000 / (self.bpm * 24)})
-	
-	for fnum, seq in ipairs(self.seq) do
-	
-		pd.send("extrovert-midiwrite-commands", "list", {"FILENUM", fnum})
-		
-		-- Make a preliminary pass over the sequence's contents, translating all note-durations into appropriately positioned note-offs
-		local outseq = deepCopy(seq.tick, {})
-		for tick, notes in ipairs(seq) do
-		
-			for _, v in ipairs(notes) do
-				if v[2] == 144 then
-					local inpoint = 1
-					if v[5] == 0 then
-						inpoint = #outseq[tick] + 1
-					end
-					table.insert(outseq[(((tick + v[5]) - 1) % #seq.tick) + 1], inpoint, {v[1], 128, v[3], v[4], 0})
-				end
-			end
-		
-		end
-		
-		-- Send the reorganized sequence to the [midifile] apparatus, one element at a time
-		for tick, notes in ipairs(outseq) do
-		
-			if notes[1] ~= nil then -- Send all commands from within the tick, if any
-				for _, v in ipairs(notes) do
-					pd.send("extrovert-midiwrite-commands", "list", {"MSG", v[1] + v[2], v[3], v[4]})
-				end
-			end
-			
-			if tick < #seq.tick then -- Send a NEXTTICK command, unless we're on the last tick of the sequence
-				pd.send("extrovert-midiwrite-commands", "list", {"NEXTTICK"})
-			end
-		
-		end
-	
-		pd.send("extrovert-midiwrite-commands", "list", {"SAVE"})
-		
-		pd.post("Saved sequence " .. fnum)
-	
-	end
-	
-	pd.post("Saved data to \"" .. self.hotseats[self.activeseat] .. "\"!")
 
 end
 
@@ -2023,48 +1977,3 @@ end
 
 
 
-
-
-
-
--- Control the MIDI-READ apparatus, for loading a savefile
-function Extrovert:in_6_list(list)
-
-	if list[1] == "COMMAND" then -- Parse MIDI commands
-	
-		table.remove(list, 1)
-		
-		pd.post("File Load: Tick " .. self.loadtick .. ", command " .. table.concat(list, " "))
-		
-		table.insert(self.loadseq[self.loadkey].tick[self.loadpointer], list)
-		
-	elseif list[1] == "TICKS_PER_QUARTER_NOTE" then -- Get ticks-per-quarter-note value
-	
-		self.tpq = list[2]
-		
-	elseif list[1] == "MS_PER_QUARTER_NOTE" then -- Get microseconds-per-quarter-note value
-	
-		self.mspq = list[2]
-	
-	elseif list[1] == "TICK" then -- Expand the currently-loading sequence to accomodate the new tick
-	
-		self.loadpointer = list[2] + 1
-		
-		self.loadseq[self.loadkey].tick[self.loadpointer] = {}
-		
-		pd.send("extrovert-midiread-commands", "list", {"NEXT_TICK"})
-		
-	elseif list[1] == "FILE_END" then -- Parse file-end commands
-	
-		self.loadpointer = 1
-		self.loadkey = self.loadkey + 1
-		
-		pd.post("File Load: Received FILE_END")
-		
-	else -- Skip and report upon unknown commands
-	
-		pd.post("File Load: Received unknown command: " .. table.concat(list, " "))
-		
-	end
-
-end
