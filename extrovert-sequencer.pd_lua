@@ -721,7 +721,43 @@ end
 -- Save current table-data as a folder of MIDI files, via the MIDI.lua apparatus
 function Extrovert:saveData()
 
+	for i = 1, (self.gridy - 2) * self.gridx do
 	
+		local opus = {24} -- Start by inserting Extrovert's standard ticks-per-quarter-note value (corresponds to MIDI Clock tick rate)
+		
+		for tick, notes in ipairs(self.seq[i].tick) do
+		
+			for num, v in ipairs(notes) do
+			
+				-- Convert Extrovert tabes into their MIDIlua counterparts
+				if v[1] == 144 then
+					table.insert(opus, {"note", tick, v[5], v[2], v[3], v[4]})
+				elseif v[1] == 160 then
+					table.insert(opus, {"pitch_wheel_change", tick, v[2], v[3]})
+				elseif v[1] == 176 then
+					table.insert(opus, {"control_change", tick, v[2], v[3], v[4]})
+				elseif v[1] == 192 then
+					table.insert(opus, {"patch_change", tick, v[2], v[3]})
+				elseif v[1] == 208 then
+					table.insert(opus, {"key_after_touch", tick, v[2], v[3], v[4]})
+				elseif v[1] == 224 then
+					table.insert(opus, {"pitch_wheel_change", tick, v[2], v[3]})
+				end
+				
+			end
+			
+		end
+	
+		-- Save the table into a MIDI file within the savefolder, using MIDI.lua functions
+		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'w'))
+		midifile:write(MIDI.score2midi(opus))
+		midifile:close()
+	
+		pd.post("Saved sequence " .. i .. "!")
+	
+	end
+	
+	pd.post("Saved sequences to savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 
 end
 
@@ -734,6 +770,7 @@ function Extrovert:loadData()
 	
 		local tab = {}
 	
+		-- Load the table from a MIDI file within the savefolder, using MIDI.lua functions
 		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'r'))
 		midifile:read(MIDI.midi2score(tab))
 		midifile:close()
