@@ -718,6 +718,44 @@ end
 
 
 
+-- Start the Puredata [metro] apparatus
+function Extrovert:startTempo()
+
+	pd.send("extrovert-metro-command", "bang", {})
+
+end
+
+-- Stop the Puredata [metro] apparatus
+function Extrovert:stopTempo()
+
+	pd.send("extrovert-metro-command", "stop", {})
+
+end
+
+-- Propagate a beats-per-minute value to the Puredata tempo apparatus
+function Extrovert:propagateBPM()
+
+	local ms = 60000 / (self.bpm * 24) -- Convert BPM into milliseconds
+	
+	pd.send("extrovert-metro-speed", "float", {ms})
+
+end
+
+-- Initialize Extrovert's Puredata tempo apparatus
+function Extrovert:initializeClock()
+
+	if (self.clocktype == "slave")
+	or (self.clocktype == "thru")
+	then -- Clock types: slave and thru
+		pd.send("extrovert-clock-type", "float", {1})
+	else -- Clock types: master and none
+		pd.send("extrovert-clock-type", "float", {0})
+	end
+	
+end
+
+
+
 -- Save current table-data as a folder of MIDI files, via the MIDI.lua apparatus
 function Extrovert:saveData()
 
@@ -805,7 +843,6 @@ function Extrovert:loadData()
 				table.insert(outtab[v[2]], {224, v[3], v[4], 0, 0})
 			elseif v[1] == "set_tempo" then
 				self.bpm = 60000000 / v[3]
-				self.metrorate = 60000 / (self.bpm * 24)
 			else
 				pd.post("Discarded unsupported command: " .. v[1])
 			end
@@ -824,6 +861,8 @@ function Extrovert:loadData()
 	end
 	
 	self:normalizePointers()
+	
+	self:propagateBPM()
 	
 	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 
@@ -1928,7 +1967,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.acceptpiano = true -- Track piano-note-accepting mode in the editor: true to record and play piano notes; false to play without recording
 	
-	self.clocktype = self.prefs.midi.clocktype -- User-defined MIDI CLOCK type. "master" / "slave" / "none"
+	self.clocktype = self.prefs.midi.clocktype -- User-defined MIDI CLOCK type.
 	
 	self.tick = 1 -- Current microtime tick in the sequencer
 	
@@ -1953,6 +1992,10 @@ function Extrovert:initialize(sel, atoms)
 	self:buildGUI()
 	
 	self:populateGUI()
+	
+	self:initializeClock()
+	self:propagateBPM()
+	self:startTempo()
 	
 	
 	
@@ -2014,3 +2057,43 @@ end
 
 
 
+function Extrovert:in_2_list(t)
+
+end
+
+function Extrovert:in_3_list(t)
+
+end
+
+
+
+-- Parse incoming tempo ticks or MIDI CLOCK commands
+function Extrovert:in_4(sel, m)
+
+	if sel == "bang" then
+	
+		
+	
+	elseif sel == "float" then
+	
+		if m == 248 then
+		
+			
+		
+		elseif m == 250 then
+		
+			
+		
+		elseif m == 251 then
+		
+			
+		
+		elseif m == 252 then
+		
+			
+		
+		end
+		
+	end
+
+end
