@@ -718,6 +718,24 @@ end
 
 
 
+--
+function Extrovert:iterateSequence(s)
+
+
+
+end
+
+-- Cycle through all MIDI commands on the active tick within every active sequence
+function Extrovert:iterateAllSequences()
+
+	for i = 1, (self.gridy - 2) * self.gridx do
+		self:iterateSequence(i)
+	end
+
+end
+
+
+
 -- Start the Puredata [metro] apparatus
 function Extrovert:startTempo()
 
@@ -754,15 +772,28 @@ end
 -- Initialize Extrovert's Puredata tempo apparatus
 function Extrovert:initializeClock()
 
-	if (self.clocktype == "master")
+	if (self.clocktype == "master") then
 		pd.send("extrovert-clock-type", "float", {1})
-	elseif (self.clocktype == "slave")
+	elseif (self.clocktype == "slave") then
 		pd.send("extrovert-clock-type", "float", {2})
-	elseif (self.clocktype == "thru")
+	elseif (self.clocktype == "thru") then
 		pd.send("extrovert-clock-type", "float", {3})
-	elseif (self.clocktype == "none")
+	elseif (self.clocktype == "none") then
 		pd.send("extrovert-clock-type", "float", {4})
 	end
+	
+end
+
+
+
+-- Initialize the parameters of the Puredata Monome apparatus
+function Extrovert:initializeMonome()
+
+	pd.send("extrovert-osc-type", "float", {self.prefs.monome.osctype})
+	pd.send("extrovert-osc-out-port", "float", {self.prefs.monome.oscsend})
+	pd.send("extrovert-osc-in-port", "float", {self.prefs.monome.osclisten})
+	
+	pd.post("Initialized Monome settings")
 	
 end
 
@@ -2011,6 +2042,8 @@ function Extrovert:initialize(sel, atoms)
 	self:buildGUI()
 	
 	self:populateGUI()
+	
+	self:initializeMonome()
 	
 	self:initializeClock()
 	self:propagateBPM()
