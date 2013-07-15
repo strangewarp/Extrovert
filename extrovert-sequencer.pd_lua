@@ -721,14 +721,24 @@ end
 -- Start the Puredata [metro] apparatus
 function Extrovert:startTempo()
 
-	pd.send("extrovert-metro-command", "bang", {})
-
+	if self.clocktype == "master" then
+		pd.send("extrovert-clock-out", "float", {250}) -- Send a CLOCK START command
+		pd.send("extrovert-clock-out", "float", {248}) -- Send a dummy tick command, as per MIDI CLOCK spec
+		pd.send("extrovert-metro-command", "initialize", {}) -- Send the [metro] a start-bang with a 1-ms delay, to give MIDI SLAVE devices a space to prepare for ticks
+	elseif self.clocktype == "none" then
+		pd.send("extrovert-metro-command", "bang", {}) -- Send the [metro] a normal start-bang
+	end
+	
 end
 
 -- Stop the Puredata [metro] apparatus
 function Extrovert:stopTempo()
 
-	pd.send("extrovert-metro-command", "stop", {})
+	if self.clocktype == "master" then
+		pd.send("extrovert-clock-out", "float", {252}) -- Send a CLOCK END command
+	elseif self.clocktype == "none" then
+		pd.send("extrovert-metro-command", "stop", {}) -- Stop the [metro] from sending any more ticks
+	end
 
 end
 
@@ -749,7 +759,13 @@ function Extrovert:initializeClock()
 	then -- Clock types: slave and thru
 		pd.send("extrovert-clock-type", "float", {1})
 	else -- Clock types: master and none
+	
+		if self.clocktype == "master" then
+			pd.send("extrovert-clock-out", "float", {250}) -- Send CLOCK START command
+		end
+	
 		pd.send("extrovert-clock-type", "float", {0})
+		
 	end
 	
 end
@@ -761,7 +777,10 @@ function Extrovert:saveData()
 
 	for i = 1, (self.gridy - 2) * self.gridx do
 	
-		local opus = {24} -- Start by inserting Extrovert's standard ticks-per-quarter-note value (corresponds to MIDI Clock tick rate)
+		local opus = {
+			24, -- Ticks per beat (e.g. quarter note)
+			{"set_tempo", 0, 60000000 / self.bpm}, -- Microseconds per beat
+		}
 		
 		for tick, notes in ipairs(self.seq[i].tick) do
 		
@@ -802,6 +821,8 @@ end
 
 -- Load a MIDI savefile folder, via the MIDI.lua apparatus
 function Extrovert:loadData()
+
+	self:stopTempo() -- Stop the tempo system, if applicable
 
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
 	for i = 1, (self.gridy - 2) * self.gridx do
@@ -869,6 +890,8 @@ function Extrovert:loadData()
 	self:makeCleanHistory() -- Reset undo history
 	
 	self:updateEditorPanel()
+	
+	self:startTempo() -- Start the tempo system again, if applicable
 
 end
 
@@ -2070,28 +2093,59 @@ end
 -- Parse incoming tempo ticks or MIDI CLOCK commands
 function Extrovert:in_4(sel, m)
 
-	if sel == "bang" then
+	if sel == "bang" then -- Accept [metro]-based tempo ticks
 	
+		if self.clocktype == "master" then
+			pd.send("extrovert-clock-out", "float", {248})
+		end
+
+		self.tick = (self.tick % 24) + 1
 		
+		self:iterateAllSequences()
 	
-	elseif sel == "float" then
+	elseif sel == "float" then -- Accept MIDI CLOCK tempo commands
 	
-		if m == 248 then
+		if m == 248 then -- MIDI CLOCK PULSE
 		
+			if self.tick == 0 then -- Compensate for the initial dummy tick
+				self.tick = 1
+			else -- Accept regular clock ticks
 			
-		
-		elseif m == 250 then
-		
+				self.tick = (self.tick % 24) + 1
+				
+				self:iterateAllSequences()
 			
+			end
 		
-		elseif m == 251 then
+		elseif m == 250 then -- MIDI CLOCK START
 		
+			if not self.acceptpulse then
+				self.tick = 0 -- Set tick to 0 instead of 1, in order to compensate for the initial dummy downbeat
+				self.acceptpulse = true
+			end
 			
-		
-		elseif m == 252 then
-		
+			pd.post("Received MIDI CLOCK START")
 			
+		elseif m == 251 then -- MIDI CLOCK CONTINUE
 		
+			if not self.acceptpulse then
+				self.acceptpulse = true
+			end
+			
+			pd.post("Received MIDI CLOCK CONTINUE")
+		
+		elseif m == 252 then -- MIDI CLOCK END
+		
+			if self.acceptpulse then
+				self.acceptpulse = false
+			end
+			
+			pd.post("Received MIDI CLOCK END")
+		
+		end
+		
+		if self.clocktype == "thru" then -- Send the MIDI CLOCK messages onward, if the clocktype is set to THRU
+			pd.send("extrovert-clock-out", "float", {m})
 		end
 		
 	end
