@@ -754,18 +754,14 @@ end
 -- Initialize Extrovert's Puredata tempo apparatus
 function Extrovert:initializeClock()
 
-	if (self.clocktype == "slave")
-	or (self.clocktype == "thru")
-	then -- Clock types: slave and thru
+	if (self.clocktype == "master")
 		pd.send("extrovert-clock-type", "float", {1})
-	else -- Clock types: master and none
-	
-		if self.clocktype == "master" then
-			pd.send("extrovert-clock-out", "float", {250}) -- Send CLOCK START command
-		end
-	
-		pd.send("extrovert-clock-type", "float", {0})
-		
+	elseif (self.clocktype == "slave")
+		pd.send("extrovert-clock-type", "float", {2})
+	elseif (self.clocktype == "thru")
+		pd.send("extrovert-clock-type", "float", {3})
+	elseif (self.clocktype == "none")
+		pd.send("extrovert-clock-type", "float", {4})
 	end
 	
 end
