@@ -44,7 +44,7 @@
 #X connect 16 0 5 1;
 #X restore 22 340 pd extrovert-gui-sender;
 #N canvas 562 3 577 401 extrovert-lua-holder 1;
-#X obj 146 265 extrovert-sequencer;
+#X obj 146 265 extrovert-main;
 #X obj 146 60 keyname;
 #X symbolatom 185 83 10 0 0 0 - - -;
 #X floatatom 146 83 3 0 0 0 - - -;

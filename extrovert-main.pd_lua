@@ -721,7 +721,21 @@ end
 --
 function Extrovert:iterateSequence(s)
 
-
+	local seq = self.seq[s]
+	
+	
+	if seq[
+	
+	
+	for k, v in ipairs(seq.tick[seq.pointer]) do
+	
+	end
+	
+	
+	
+	self.seq[s].pointer = (seq.pointer % #seq.tick) + 1
+	
+	
 
 end
 
@@ -1912,14 +1926,17 @@ end
 function Extrovert:resetSequence(i)
 
 	self.seq[i] = {}
+	
 	self.seq[i].pointer = 1
-	self.seq[i].subdivide = 1
 	self.seq[i].active = false
+	
+	self.seq[i].subloop = false
 	self.seq[i].reverse = false
-	self.seq[i].skip = false
-	self.seq[i].skipcount = 1
+	self.seq[i].stutter = false
 	self.seq[i].slow = false
 	self.seq[i].slowcount = 1
+	
+	self.seq[i].incoming = {} -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
 	
 	self.seq[i].tick = {}
 	for t = 1, self.gridx * 24 do -- Insert dummy ticks
@@ -1960,6 +1977,11 @@ function Extrovert:initialize(sel, atoms)
 	self.notenames = self.prefs.notenames -- Table of user-readable note values, indexed appropriately
 	self.keynames = self.prefs.keynames -- Get the names of keys used in the editor's computer-piano-keyboard
 	
+	self.flagnames = self.prefs.flagnames -- Names that correspond to both control buttons and sequence flags
+	for _, v in pairs(self.flagnames) do
+		self[v .. "button"] = false -- Initialize all control-button flag variables
+	end
+	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
 	self.cmdfuncs = self.prefs.cmdfunctions -- Get the hash that joins command-names to function-names and args
 	
@@ -1971,10 +1993,6 @@ function Extrovert:initialize(sel, atoms)
 	self.hotseats = self.prefs.hotseats -- List of savefile hotseats
 	self.hotseatcmds = self.prefs.hotseatcmds -- List of hotseat keycommands
 	self.activeseat = 1 -- Currently active hotseat
-	
-	self:assignHotseatsToCmds()
-	
-	self:assignPianoKeysToCmds()
 	
 	self.color = {}
 	for k, v in ipairs(self.prefs.gui.color) do -- Split the user-defined colors into regular, light, and dark variants
@@ -2018,23 +2036,23 @@ function Extrovert:initialize(sel, atoms)
 	self.acceptpiano = true -- Track piano-note-accepting mode in the editor: true to record and play piano notes; false to play without recording
 	
 	self.clocktype = self.prefs.midi.clocktype -- User-defined MIDI CLOCK type.
+	self.acceptpulse = false -- Tracks whether to accept MIDI CLOCK pulses
 	
-	self.tick = 1 -- Current microtime tick in the sequencer
+	self.tick = 1 -- Current clock tick in the sequencer (wraps around at 268435456, the largest possible tick value)
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
 	
-	self.pageheld = false -- Track the up-down keystrokes on the page buttons, in order to apply other effects to the pages' entire contents when said buttons are held down
-	
-	self.offbutton = false -- Toggles whether a sequence should be turned off when pressed. If a page button is pressed instead, that page's sequences will all turn off.
-	self.gatebutton = false -- Toggles whether a given performative command should be interpreted immediately, or on the next quantization-based timing gate
-	self.loopbutton = false -- Toggles whether a sequence will merely loop a single button's worth of notes.
-	self.snapbutton = false -- Toggles whether to snap to the first tick in a given sub-segment, or continue from within that segment at a position comparable to the current pointer.
-	self.reversebutton = false -- Toggles whether the sequence will advance in reverse.
-	self.skipbutton = false -- Toggles whether to skip a number of ticks equal to the spacing value on every tick
-	self.stutterbutton = false -- Causes the previous note to stutter while the sequence's row is held.
-	self.slowbutton = false -- Slows the rate at which a sequence's ticks progress. Covers multiple buttons on the Monome's bottom row; false when not in use, else holds slow value.
+	self.pressed = {} -- Track the button-press status of all buttons on the Monome grid
+	for i = 1, self.gridx * self.gridy do
+		pressed[i] = false
+	end
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
+	
+	self:assignHotseatsToCmds()
+	
+	self:assignPianoKeysToCmds()
+	
 	self:resetAllSequences() -- Populate the self.seq table with default data
 	
 	self:makeCleanHistory() -- Put default values in the history table, so the undo/redo code doesn't wig out
@@ -2046,10 +2064,10 @@ function Extrovert:initialize(sel, atoms)
 	self:initializeMonome()
 	
 	self:initializeClock()
+	
 	self:propagateBPM()
+	
 	self:startTempo()
-	
-	
 	
 	return true
 
@@ -2109,10 +2127,68 @@ end
 
 
 
+-- Parse Monome button commands
 function Extrovert:in_2_list(t)
 
+	pd.post("Monome cmd: " .. table.concat(t, " "))
+	
+	local x = t[1] + 1
+	local y = t[2] + 1
+	local button = t[1] + (self.gridx * t[2]) + 1 -- Convert x,y values to button-key
+	
+	if t[3] == 1 then -- On down-buttonstrokes...
+	
+		self.pressed[button] = true
+	
+		if y == (self.gridy - 1) then -- Parse page-row commands
+		
+			local ctrlflag = false
+			
+			-- Check all listed control-row flags
+			for _, v in pairs(self.flagnames) do
+				if self[v[1] .. "button"] ~= false then
+					ctrlflag = true
+					-- Insert the active flags' corresponding commands into every sequence on the relevant page
+					for i = ((self.gridy - 2) * t[1]) + 1, (self.gridy - 2) * x do
+						self.seq[i].incoming[v[1]] = v[2]
+					end
+				end
+			end
+
+			if not ctrlflag then -- If no control buttons are active, tab to the selected page
+				self.page = x
+			end
+		
+		elseif y == self.gridy then -- Parse control-row commands
+		
+			local sendx = math.min(x, #self.flagnames) -- Reduce x, so that all slow-buttons are collapsed into the slow-flag
+			
+			if sendx == #self.flagnames then -- Special action for slowbuttons:
+				self.slowbutton = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
+			else
+				self[self.flagnames[sendx] .. "button"] = true -- Set the corresponding normal button var to true
+			end
+		
+		else -- Parse sequence-button commands
+		
+		
+		
+		end
+	
+	else -- On up-buttonstrokes...
+	
+		self.pressed[button] = false
+		
+		
+	
+	
+	end
+	
 end
 
+
+
+-- Parse Monome ADC commands
 function Extrovert:in_3_list(t)
 
 end
@@ -2128,7 +2204,7 @@ function Extrovert:in_4(sel, m)
 			pd.send("extrovert-clock-out", "float", {248})
 		end
 
-		self.tick = (self.tick % 24) + 1
+		self.tick = (self.tick % 268435456) + 1
 		
 		self:iterateAllSequences()
 	
@@ -2140,7 +2216,7 @@ function Extrovert:in_4(sel, m)
 				self.tick = 1
 			else -- Accept regular clock ticks
 			
-				self.tick = (self.tick % 24) + 1
+				self.tick = (self.tick % 268435456) + 1
 				
 				self:iterateAllSequences()
 			
