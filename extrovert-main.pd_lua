@@ -724,7 +724,6 @@ function Extrovert:iterateSequence(s)
 	local seq = self.seq[s]
 	
 	
-	if seq[
 	
 	
 	for k, v in ipairs(seq.tick[seq.pointer]) do
@@ -799,6 +798,68 @@ function Extrovert:initializeClock()
 end
 
 
+
+-- Send a single LED's data to the Monome apparatus (x and y are 0-indexed!)
+local function sendLED(x, y, s)
+
+	pd.send("extrovert-monome-out-led", "list", {x, y, s})
+
+end
+
+-- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
+-- If xpoint is set to false, then a blank row is sent.
+function Extrovert:sendSimpleRow(xpoint, yrow)
+
+	local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
+	
+	-- Generate a series of bytes, each holding the on-off values for an 8-button slice of the relevant row
+	for b = 0, self.gridx - 8, 8 do
+	
+		if (xpoint ~= false)
+		and (xpoint - b) < self.gridx
+		then -- If the row contains a lit button, and that button is within this byte-slice, insert the corresponding on-value
+			table.insert(rowbytes, 2 ^ (xpoint - b))
+		else -- Else, insert a byte corresponding to 8 darkened buttons
+			table.insert(rowbytes, 0)
+		end
+	
+	end
+	
+	pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
+
+end
+
+-- Send the page-command row a new set of button data
+function Extrovert:sendPageRow()
+
+	self:sendSimpleRow(self.page - 1, self.gridy - 2)
+	
+end
+
+-- Send the Monome button-data for a single visible sequence-row
+function Extrovert:sendSeqRow(s)
+
+	local yrow = (s - 1) % (self.gridy - 2)
+	
+	if self.seq[s].active then -- Send a row wherein the sequence's active subsection-button is brightened
+	
+		local subpoint = math.ceil(self.seq[s].pointer / (#self.seq[s].tick / self.gridx)) - 1
+		self:sendSimpleRow(subpoint, yrow)
+		
+	else -- Send a darkened sequence-row
+		self:sendSimpleRow(false, yrow)
+	end
+
+end
+
+-- Send the Monome button-data for all visible sequence-rows
+function Extrovert:sendVisibleSeqRows()
+
+	for i = ((self.gridy - 2) * (self.page - 1)) + 1, (self.gridy - 2) * self.page do
+		self:sendSeqRow(i)
+	end
+
+end
 
 -- Initialize the parameters of the Puredata Monome apparatus
 function Extrovert:initializeMonome()
@@ -2139,7 +2200,7 @@ function Extrovert:in_2_list(t)
 	if t[3] == 1 then -- On down-buttonstrokes...
 	
 		self.pressed[button] = true
-	
+		
 		if y == (self.gridy - 1) then -- Parse page-row commands
 		
 			local ctrlflag = false
@@ -2155,8 +2216,12 @@ function Extrovert:in_2_list(t)
 				end
 			end
 
-			if not ctrlflag then -- If no control buttons are active, tab to the selected page
-				self.page = x
+			if not ctrlflag then -- If no control buttons are active...
+			
+				self.page = x -- Tab to the selected page
+				
+				self:sendVisibleSeqRows()
+				
 			end
 		
 		elseif y == self.gridy then -- Parse control-row commands
