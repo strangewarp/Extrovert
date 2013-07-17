@@ -800,7 +800,7 @@ end
 
 
 -- Send a single LED's data to the Monome apparatus (x and y are 0-indexed!)
-local function sendLED(x, y, s)
+function Extrovert:sendLED(x, y, s)
 
 	pd.send("extrovert-monome-out-led", "list", {x, y, s})
 
@@ -2220,6 +2220,7 @@ function Extrovert:in_2_list(t)
 			
 				self.page = x -- Tab to the selected page
 				
+				self:sendPageRow()
 				self:sendVisibleSeqRows()
 				
 			end
@@ -2233,6 +2234,8 @@ function Extrovert:in_2_list(t)
 			else
 				self[self.flagnames[sendx] .. "button"] = true -- Set the corresponding normal button var to true
 			end
+			
+			self:sendLED(x - 1, y - 1, 1) -- Light up the corresponding Monome button
 		
 		else -- Parse sequence-button commands
 		
