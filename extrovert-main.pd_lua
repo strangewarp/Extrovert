@@ -874,6 +874,87 @@ end
 
 
 
+-- Parse an incoming sequence-row command from the Monome
+function Extrovert:parseSeqButton(x, y, s)
+
+	if s == 1 then
+	
+		local cmdflag = false
+		local target = ((self.page - 1) * (self.gridy - 2)) + y -- Convert y row, and page value, into a sequence-key
+		
+		-- Apply all active control-tags to the target sequence's "incoming" table
+		for _, v in pairs(self.flagnames) do
+			if self.ctrlflags[v[1]] ~= false then
+				table.insert(self.seq[target].incoming, v[1])
+			end
+		end
+		
+		self.seq[target].active = true -- Activate the sequence
+		self.seq[target].activated = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
+		self.seq[target].pointer = ((x - 1) * (#self.seq[target].tick / self.gridx)) + 1 -- Set the pointer to correspond with the x button-value
+		
+	end
+
+end
+
+-- Parse an incoming page-row command from the Monome
+function Extrovert:parsePageButton(x, s)
+
+	if s == 1 then
+
+		local cmdflag = false -- Gets toggled to true if any command buttons are being pressed
+		
+		-- Check all listed control-row flags
+		for _, v in pairs(self.flagnames) do
+			if self.ctrlflags[v[1]] ~= false then
+				cmdflag = true
+				-- Insert the active flags' corresponding commands into every sequence on the relevant page
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
+					table.insert(self.seq[i].incoming, v[1])
+				end
+			end
+		end
+
+		if (not cmdflag) -- If this is not being chorded with any command-buttons...
+		and (x ~= self.page) -- And the page-button being pressed is not for the active page...
+		then
+		
+			self.page = x -- Tab to the selected page
+			
+			self:sendPageRow()
+			self:sendVisibleSeqRows()
+			
+		end
+		
+	end
+
+end
+
+-- Parse an incoming control-row command from the Monome
+function Extrovert:parseCommandButton(x, s)
+
+	local light = 1 -- Stays set to 1 if the button is to be lit; else will be set to 0
+	local sendx = math.min(x, #self.flagnames) -- Reduce x, so that all slow-buttons are collapsed into the slow-flag
+	
+	if s == 1 then
+
+		if sendx == #self.flagnames then -- Special action for slowbuttons:
+			self.slowbutton = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
+		else
+			self.ctrlflags[self.flagnames[sendx]] = true -- Set the corresponding normal button var to true
+		end
+	
+	else
+		self.ctrlflags[self.flagnames[sendx]] = false -- Set the corresponding button var to false
+		light = 0 -- The button will be darkened
+	end
+	
+	self:sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
+
+end
+
+
+
 -- Save current table-data as a folder of MIDI files, via the MIDI.lua apparatus
 function Extrovert:saveData()
 
@@ -919,7 +1000,6 @@ function Extrovert:saveData()
 	pd.post("Saved sequences to savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 
 end
-
 
 -- Load a MIDI savefile folder, via the MIDI.lua apparatus
 function Extrovert:loadData()
@@ -1990,6 +2070,7 @@ function Extrovert:resetSequence(i)
 	
 	self.seq[i].pointer = 1
 	self.seq[i].active = false
+	self.seq[i].activated = false
 	
 	self.seq[i].subloop = false
 	self.seq[i].reverse = false
@@ -2038,9 +2119,10 @@ function Extrovert:initialize(sel, atoms)
 	self.notenames = self.prefs.notenames -- Table of user-readable note values, indexed appropriately
 	self.keynames = self.prefs.keynames -- Get the names of keys used in the editor's computer-piano-keyboard
 	
+	self.ctrlflags = {} -- Holds all control-flags, which correspond to the control-buttons on the Monome
 	self.flagnames = self.prefs.flagnames -- Names that correspond to both control buttons and sequence flags
 	for _, v in pairs(self.flagnames) do
-		self[v .. "button"] = false -- Initialize all control-button flag variables
+		self.ctrlflags[v] = false -- Initialize all control-button flag variables
 	end
 	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
@@ -2191,66 +2273,24 @@ end
 -- Parse Monome button commands
 function Extrovert:in_2_list(t)
 
-	pd.post("Monome cmd: " .. table.concat(t, " "))
-	
 	local x = t[1] + 1
 	local y = t[2] + 1
-	local button = t[1] + (self.gridx * t[2]) + 1 -- Convert x,y values to button-key
 	
-	if t[3] == 1 then -- On down-buttonstrokes...
+	if y == (self.gridy - 1) then -- Parse page-row commands
 	
-		self.pressed[button] = true
-		
-		if y == (self.gridy - 1) then -- Parse page-row commands
-		
-			local ctrlflag = false
-			
-			-- Check all listed control-row flags
-			for _, v in pairs(self.flagnames) do
-				if self[v[1] .. "button"] ~= false then
-					ctrlflag = true
-					-- Insert the active flags' corresponding commands into every sequence on the relevant page
-					for i = ((self.gridy - 2) * t[1]) + 1, (self.gridy - 2) * x do
-						self.seq[i].incoming[v[1]] = v[2]
-					end
-				end
-			end
-
-			if not ctrlflag then -- If no control buttons are active...
-			
-				self.page = x -- Tab to the selected page
-				
-				self:sendPageRow()
-				self:sendVisibleSeqRows()
-				
-			end
-		
-		elseif y == self.gridy then -- Parse control-row commands
-		
-			local sendx = math.min(x, #self.flagnames) -- Reduce x, so that all slow-buttons are collapsed into the slow-flag
-			
-			if sendx == #self.flagnames then -- Special action for slowbuttons:
-				self.slowbutton = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
-			else
-				self[self.flagnames[sendx] .. "button"] = true -- Set the corresponding normal button var to true
-			end
-			
-			self:sendLED(x - 1, y - 1, 1) -- Light up the corresponding Monome button
-		
-		else -- Parse sequence-button commands
-		
-		
-		
-		end
+		self:parsePageButton(x)
 	
-	else -- On up-buttonstrokes...
+	elseif y == self.gridy then -- Parse control-row commands
 	
-		self.pressed[button] = false
-		
-		
+		self:parseCommandButton(x, t[3])
 	
+	else -- Parse sequence-button commands
+	
+		self:parseSeqButton(x, y, s)
 	
 	end
+	
+	pd.post("Monome cmd: " .. table.concat(t, " "))
 	
 end
 
