@@ -731,27 +731,17 @@ function Extrovert:noteParse(note)
 	local tarnote = self.sustain[note[2]][note[3]]
 
 	if note[1] == 144 then -- Parse ON-commands
-	
-		tarnote.dur = math.max(note[5], tarnote.dur)
-		tarnote.active = tarnote.active + 1
-		
-		self:noteSend(note)
-	
+		tarnote.dur = math.max(note[5], tarnote.dur) -- Increase the note's global duration value by the incoming duration amount, if applicable
+		tarnote.active = true
 	elseif note[1] == 128 then -- Parse OFF-commands
-	
-		tarnote.active = math.max(0, tarnote.active - 1)
-		
-		if tarnote.active == 0 then
-			tarnote.dur = 0
-			self:noteSend(note)
-		end
-	
-	else
-		self:noteSend(note)
+		tarnote.dur = 0
+		tarnote.active = false
 	end
 	
 	self.sustain[note[2]][note[3]] = tarnote
 
+	self:noteSend(note)
+	
 end
 
 -- Send all notes within a given tick in a given sequence
@@ -762,6 +752,64 @@ function Extrovert:sendTickNotes(s, t)
 			self:noteParse(note)
 		end
 	end
+
+end
+
+-- Convert flags in the "incoming" table into a sequence's internal states
+function Extrovert:parseIncomingFlags(s)
+
+	local flags = self.seq[s].incoming
+	
+	-- Go through all potential incoming flags, and apply their initial effects to the sequence's local variables
+	-- (Note: strict comparisons, to check for the true boolean flag, rather than undefined values that might return true)
+	if flags.off == true then
+	
+		self.seq[s].active = false
+		
+	else
+	
+		local bpoint = ((flags.button - 1) * (#self.seq[s].tick / self.gridx)) + 1 -- Calculate the tick that corresponds to the incoming button-position
+		
+		self.seq[s].active = true
+		
+		if flags.resume == true then
+			self.seq[s].active = true
+		end
+	
+		if flags.snap == true then
+			self.seq[s].pointer = bpoint
+		else
+			self.seq[s].pointer = bpoint + (self.seq[s].pointer % (#self.seq[s].tick / self.gridx)) -- Transpose the previous pointer position into the incoming button's slice
+		end
+		
+		if flags.reverse == true then
+			self.seq[s].reverse = true
+		else
+			self.seq[s].reverse = false
+		end
+		
+		if flags.loop == true then
+			self.seq[s].loop = true
+		else
+			self.seq[s].loop = false
+		end
+		
+		if flags.stutter == true then
+			self.seq[s].stutter = true
+		else
+			self.seq[s].stutter = false
+		end
+		
+		if flags.slow ~= nil then
+			self.seq[s].slow = flags.slow
+		else
+			self.seq[s].slow = false
+		end
+	
+	end
+	
+	-- Empty the incoming table
+	self.seq[s].incoming = {}
 
 end
 
@@ -803,19 +851,29 @@ function Extrovert:iterateSequence(s)
 	
 end
 
--- Cycle through all MIDI commands on the active tick within every active sequence
-function Extrovert:iterateAllSequences()
+-- Send automatic noteoffs for duration-based notes that have expired
+function Extrovert:decayAllSustains()
 
-	-- Send automatic noteoffs for duration-based notes
 	for chan, notes in pairs(self.sustain) do
 		for note, params in pairs(notes) do
-			if (params.active > 0)
-			and (params.dur == 0)
-			then
-				self:noteParse({chan, 128, note, 127, 0})
+			if params.active then -- If the sustain is active...
+			
+				self.sustain[chan][note].dur = math.max(0, params.dur - 1) -- Decrease the relevant duration value
+			
+				if params.dur == 0 then -- If the duration has expired...
+					self:noteParse({chan, 128, note, 127, 0}) -- Parse a noteoff for the relevant channel and note
+				end
+				
 			end
 		end
 	end
+
+end
+
+-- Cycle through all MIDI commands on the active tick within every active sequence
+function Extrovert:iterateAllSequences()
+
+	self:decayAllSustains()
 	
 	-- Send all regular commands within all sequences
 	for i = 1, (self.gridy - 2) * self.gridx do
@@ -967,7 +1025,7 @@ function Extrovert:parseSeqButton(x, y, s)
 		end
 		
 		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
-		self.seq[target].incoming.pointer = ((x - 1) * (#self.seq[target].tick / self.gridx)) + 1 -- Set the incoming pointer to correspond with the x button-value
+		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
 	end
 
@@ -2147,7 +2205,7 @@ function Extrovert:resetSequence(i)
 	self.seq[i].pointer = 1
 	self.seq[i].active = false
 	
-	self.seq[i].subloop = false
+	self.seq[i].loop = false
 	self.seq[i].reverse = false
 	self.seq[i].stutter = false
 	self.seq[i].slow = false
