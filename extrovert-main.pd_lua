@@ -1,5 +1,5 @@
 
-local Extrovert = pd.Class:new():register("extrovert-sequencer")
+local Extrovert = pd.Class:new():register("extrovert-main")
 
 local MIDI = require('MIDI')
 
@@ -778,25 +778,23 @@ function Extrovert:parseIncomingFlags(s)
 	local flags = self.seq[s].incoming
 	
 	-- Go through all potential incoming flags, and apply their initial effects to the sequence's local variables
-	-- (Note: strict comparisons, to check for the true boolean flag, rather than undefined values that might return true)
-	if flags.off == true then
+	if flags.off == true then -- The off-flag overrides all other flags
 	
 		self.seq[s].active = false
 		
 	else
 	
-		local bpoint = ((flags.button - 1) * (#self.seq[s].tick / self.gridx)) + 1 -- Calculate the tick that corresponds to the incoming button-position
-		
 		self.seq[s].active = true
 		
-		if flags.resume == true then
-			self.seq[s].active = true
-		end
-	
-		if flags.snap == true then
-			self.seq[s].pointer = bpoint
+		local bpoint = ((flags.button - 1) * (#self.seq[s].tick / self.gridx)) + 1 -- Calculate the tick that corresponds to the incoming button-position
+		if flags.snap == true then -- Snap-flag overrides resume-flag, if both are true
+			self.seq[s].pointer = bpoint -- Snap to the first tick in a button's slice
 		else
-			self.seq[s].pointer = bpoint + (self.seq[s].pointer % (#self.seq[s].tick / self.gridx)) -- Transpose the previous pointer position into the incoming button's slice
+			if flags.resume == true then
+				self.seq[s].active = true -- Reactivate the sequence without changing the pointer
+			else
+				self.seq[s].pointer = bpoint + (self.seq[s].pointer % (#self.seq[s].tick / self.gridx)) -- Transpose the previous pointer position into the incoming button's slice
+			end
 		end
 		
 		if flags.reverse == true then
@@ -817,7 +815,7 @@ function Extrovert:parseIncomingFlags(s)
 			self.seq[s].stutter = false
 		end
 		
-		if flags.slow ~= nil then
+		if flags.slow ~= nil then -- Slow is treated differently, because it contains either a numerical value or nil
 			self.seq[s].slow = flags.slow
 		else
 			self.seq[s].slow = false
@@ -2250,7 +2248,6 @@ end
 
 
 
-
 function Extrovert:initialize(sel, atoms)
 
 	-- 1. Key commands
@@ -2263,6 +2260,8 @@ function Extrovert:initialize(sel, atoms)
 	self.outlets = 0
 	
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
+	
+	pd.post("Dye 1") -- DEBUGGING
 	
 	self.cmdnames = self.prefs.cmdnames -- Holds the command-types that the user toggles between, and their corresponding MIDI command values
 	self.notenames = self.prefs.notenames -- Table of user-readable note values, indexed appropriately
@@ -2340,27 +2339,49 @@ function Extrovert:initialize(sel, atoms)
 	end
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
+
+	pd.post("Dye 2") -- DEBUGGING
 	
 	self:assignHotseatsToCmds()
 	
+	pd.post("Dye 3") -- DEBUGGING
+	
 	self:assignPianoKeysToCmds()
+	
+	pd.post("Dye 4") -- DEBUGGING
 	
 	self:resetAllSequences() -- Populate the self.seq table with default data
 	
+	pd.post("Dye 5") -- DEBUGGING
+	
 	self:makeCleanHistory() -- Put default values in the history table, so the undo/redo code doesn't wig out
+	
+	pd.post("Dye 6") -- DEBUGGING
 	
 	self:buildGUI()
 	
+	pd.post("Dye 7") -- DEBUGGING
+	
 	self:populateGUI()
+	
+	pd.post("Dye 8") -- DEBUGGING
 	
 	self:initializeMonome()
 	
+	pd.post("Dye 9") -- DEBUGGING
+	
 	self:initializeClock()
+	
+	pd.post("Dye 10") -- DEBUGGING
 	
 	self:propagateBPM()
 	
+	pd.post("Dye 11") -- DEBUGGING
+	
 	self:startTempo()
 	
+	pd.post("Dye 12") -- DEBUGGING
+
 	return true
 
 end

@@ -49,9 +49,9 @@
 #X symbolatom 185 83 10 0 0 0 - - -;
 #X floatatom 146 83 3 0 0 0 - - -;
 #X obj 146 105 pack f s;
-#X obj 257 209 r extrovert-tempo-tick;
-#X obj 220 186 r extrovert-monome-dials;
-#X obj 183 163 r extrovert-monome-buttons;
+#X obj 227 209 r extrovert-tempo-tick;
+#X obj 200 186 r extrovert-monome-dials;
+#X obj 173 163 r extrovert-monome-buttons;
 #X connect 1 0 3 0;
 #X connect 1 1 2 0;
 #X connect 2 0 4 1;
