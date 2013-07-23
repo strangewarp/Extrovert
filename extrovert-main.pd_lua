@@ -41,6 +41,23 @@ local function deepCopy(t, t2)
 	
 end
 
+-- Compare the contents of two flat tables, returning true only on an exact match
+local function flatCompare(t, t2)
+
+	if #t ~= #t2 then
+		return false
+	end
+	
+	for k, v in pairs(t) do
+		if v ~= t2[k] then
+			return false
+		end
+	end
+	
+	return true
+
+end
+
 -- Compare the contents of two tables of type <t = {v1 = v1, v2 = v2, ...}>, and return true only on an exact match.
 local function crossCompare(t, t2)
 
@@ -816,7 +833,7 @@ end
 -- Iterate through a sequence's incoming flags, increase its tick pointer under certain conditions, and send off all relevant notes
 function Extrovert:iterateSequence(s)
 
-	if self.seq[s].incoming ~= nil then -- If the sequence has incoming flags...
+	if not flatCompare(self.seq[s].incoming, {}) then -- If the sequence has incoming flags...
 	
 		if self.seq[s].incoming.gate ~= nil then -- If the GATE command is incoming...
 			if (self.tick % self.bigchunk) == 0 then -- On global ticks that correspond to the first tick in the biggest chunk within all loaded sequences...
