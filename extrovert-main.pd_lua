@@ -718,29 +718,106 @@ end
 
 
 
---
+-- Send an outgoing MIDI command, via the Puredata MIDI apparatus
+function Extrovert:noteSend(note)
+
+	
+
+end
+
+-- Parse an outgoing MIDI command, before actually sending it
+function Extrovert:noteParse(note)
+
+	local tarnote = self.sustain[note[2]][note[3]]
+
+	if note[1] == 144 then -- Parse ON-commands
+	
+		tarnote.dur = math.max(note[5], tarnote.dur)
+		tarnote.active = tarnote.active + 1
+		
+		self:noteSend(note)
+	
+	elseif note[1] == 128 then -- Parse OFF-commands
+	
+		tarnote.active = math.max(0, tarnote.active - 1)
+		
+		if tarnote.active == 0 then
+			tarnote.dur = 0
+			self:noteSend(note)
+		end
+	
+	else
+		self:noteSend(note)
+	end
+	
+	self.sustain[note[2]][note[3]] = tarnote
+
+end
+
+-- Send all notes within a given tick in a given sequence
+function Extrovert:sendTickNotes(s, t)
+
+	if self.seq[s].tick[t][1] ~= nil then
+		for tick, note in ipairs(self.seq[s].tick[t]) do
+			self:noteParse(note)
+		end
+	end
+
+end
+
+-- Iterate through a sequence's incoming flags, increase its tick pointer under certain conditions, and send off all relevant notes
 function Extrovert:iterateSequence(s)
 
-	local seq = self.seq[s]
+	if self.seq[s].incoming ~= nil then -- If the sequence has incoming flags...
 	
+		if self.seq[s].incoming.gate ~= nil then -- If the GATE command is incoming...
+			if (self.tick % self.bigchunk) == 0 then -- On global ticks that correspond to the first tick in the biggest chunk within all loaded sequences...
+				self:parseIncomingFlags(s)
+			end
+		else
+			self:parseIncomingFlags(s)
+		end
+		
+	end
+
+	if self.seq[s].active then -- If the sequence is active...
 	
+		local newpoint = (self.seq[s].pointer % #self.seq[s].tick) + 1
+		if self.seq[s].reverse == true then -- If reverse is enabled in this sequence, change the target pointer value accordingly
+			newpoint = ((self.seq[s].pointer - 2) % #self.seq[s].tick) + 1
+		end
 	
-	
-	for k, v in ipairs(seq.tick[seq.pointer]) do
+		if self.seq[s].slow ~= false then -- If the slow flag is active, only increment the pointer and send tick-notes on the appropriate global ticks
+			if (self.tick % self.seq[s].slow) == 0 then
+				self.seq[s].pointer = newpoint
+				self:sendTickNotes(s, self.seq[s].pointer)
+			end
+		else -- Else, increment the pointer and send tick-notes on every global tick
+			self.seq[s].pointer = newpoint
+			self:sendTickNotes(s, self.seq[s].pointer)
+		end
 	
 	end
 	
 	
 	
-	self.seq[s].pointer = (seq.pointer % #seq.tick) + 1
-	
-	
-
 end
 
 -- Cycle through all MIDI commands on the active tick within every active sequence
 function Extrovert:iterateAllSequences()
 
+	-- Send automatic noteoffs for duration-based notes
+	for chan, notes in pairs(self.sustain) do
+		for note, params in pairs(notes) do
+			if (params.active > 0)
+			and (params.dur == 0)
+			then
+				self:noteParse({chan, 128, note, 127, 0})
+			end
+		end
+	end
+	
+	-- Send all regular commands within all sequences
 	for i = 1, (self.gridy - 2) * self.gridx do
 		self:iterateSequence(i)
 	end
@@ -889,9 +966,8 @@ function Extrovert:parseSeqButton(x, y, s)
 			end
 		end
 		
-		self.seq[target].active = true -- Activate the sequence
-		self.seq[target].activated = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
-		self.seq[target].pointer = ((x - 1) * (#self.seq[target].tick / self.gridx)) + 1 -- Set the pointer to correspond with the x button-value
+		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
+		self.seq[target].incoming.pointer = ((x - 1) * (#self.seq[target].tick / self.gridx)) + 1 -- Set the incoming pointer to correspond with the x button-value
 		
 	end
 
@@ -2070,13 +2146,11 @@ function Extrovert:resetSequence(i)
 	
 	self.seq[i].pointer = 1
 	self.seq[i].active = false
-	self.seq[i].activated = false
 	
 	self.seq[i].subloop = false
 	self.seq[i].reverse = false
 	self.seq[i].stutter = false
 	self.seq[i].slow = false
-	self.seq[i].slowcount = 1
 	
 	self.seq[i].incoming = {} -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
 	
