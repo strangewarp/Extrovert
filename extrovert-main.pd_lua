@@ -736,10 +736,52 @@ end
 
 
 -- Send an outgoing MIDI command, via the Puredata MIDI apparatus
-function Extrovert:noteSend(note)
+function Extrovert:noteSend(n)
 
+	if n[1] == 128 then
 	
-
+		pd.send("extrovert-midiout-note", "list", {n[1] + n[2], n[3], 0})
+		
+		pd.post("NOTE-OFF: " .. n[1] + n[2] .. " " .. n[3] .. " 0") -- DEBUGGING
+	
+	elseif n[1] == 144 then
+	
+		pd.send("extrovert-midiout-note", "list", {n[1] + n[2], n[3], n[4]})
+		
+		pd.post("NOTE-ON: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+	
+	elseif n[1] == 160 then
+	
+		pd.send("extrovert-midiout-poly", "list", {n[1] + n[2], n[3], n[4]})
+		
+		pd.post("POLY-TOUCH: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+	
+	elseif n[1] == 176 then
+	
+		pd.send{"extrovert-midiout-control", "list", {n[1] + n[2], n[3], n[4]})
+		
+		pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+	
+	elseif n[1] == 192 then
+	
+		pd.send{"extrovert-midiout-program", "list", {n[1] + n[2], n[3]})
+		
+		pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+	
+	elseif n[1] == 208 then
+	
+		pd.send{"extrovert-midiout-press", "list", {n[1] + n[2], n[3]})
+		
+		pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+	
+	elseif n[1] == 224 then
+	
+		pd.send{"extrovert-midiout-bend", "list", {n[1] + n[2], n[3]})
+		
+		pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+	
+	end
+	
 end
 
 -- Parse an outgoing MIDI command, before actually sending it
@@ -2332,11 +2374,6 @@ function Extrovert:initialize(sel, atoms)
 	self.tick = 1 -- Current clock tick in the sequencer (wraps around at 268435456, the largest possible tick value)
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
-	
-	self.pressed = {} -- Track the button-press status of all buttons on the Monome grid
-	for i = 1, self.gridx * self.gridy do
-		pressed[i] = false
-	end
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
 

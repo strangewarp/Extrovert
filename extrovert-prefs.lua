@@ -621,7 +621,7 @@ return {
 		{ "Prog", 192 }, -- MIDI program change
 		{ "Pres", 208 }, -- MIDI mono-key pressure
 		{ "Bend", 224 }, -- MIDI pitch bend
-		{ "Sys", 240 }, -- MIDI system message
+		-- { "Sys", 240 }, -- MIDI system message. Disabled for now, due to Pd and Extrovert limitations.
 	
 	},
 
