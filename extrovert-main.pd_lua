@@ -41,23 +41,6 @@ local function deepCopy(t, t2)
 	
 end
 
--- Compare the contents of two flat tables, returning true only on an exact match
-local function flatCompare(t, t2)
-
-	if #t ~= #t2 then
-		return false
-	end
-	
-	for k, v in pairs(t) do
-		if v ~= t2[k] then
-			return false
-		end
-	end
-	
-	return true
-
-end
-
 -- Compare the contents of two tables of type <t = {v1 = v1, v2 = v2, ...}>, and return true only on an exact match.
 local function crossCompare(t, t2)
 
@@ -758,25 +741,25 @@ function Extrovert:noteSend(n)
 	
 	elseif n[1] == 176 then
 	
-		pd.send{"extrovert-midiout-control", "list", {n[1] + n[2], n[3], n[4]})
+		pd.send("extrovert-midiout-control", "list", {n[1] + n[2], n[3], n[4]})
 		
 		pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
 	elseif n[1] == 192 then
 	
-		pd.send{"extrovert-midiout-program", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-program", "list", {n[1] + n[2], n[3]})
 		
 		pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
 	elseif n[1] == 208 then
 	
-		pd.send{"extrovert-midiout-press", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-press", "list", {n[1] + n[2], n[3]})
 		
 		pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
 	elseif n[1] == 224 then
 	
-		pd.send{"extrovert-midiout-bend", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-bend", "list", {n[1] + n[2], n[3]})
 		
 		pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
@@ -787,18 +770,24 @@ end
 -- Parse an outgoing MIDI command, before actually sending it
 function Extrovert:noteParse(note)
 
-	local tarnote = self.sustain[note[2]][note[3]]
-
-	if note[1] == 144 then -- Parse ON-commands
-		tarnote.dur = math.max(note[5], tarnote.dur) -- Increase the note's global duration value by the incoming duration amount, if applicable
-		tarnote.active = true
-	elseif note[1] == 128 then -- Parse OFF-commands
-		tarnote.dur = 0
-		tarnote.active = false
+	if rangeCheck(note[2], 128, 159) then -- If this is a NOTE-ON or NOTE-OFF command, modify the contents of the MIDI-sustain table
+	
+		local sust = self.sustain[note[1]][note[3]] or -1 -- If the corresponding sustain value isn't nil, copy it to sust; else set sust to -1
+	
+		if note[1] == 144 then -- For ON-commands, increase the note's global duration value by the incoming duration amount, if applicable
+			sust = math.max(note[5], sust)
+		else -- For OFF-commands, set sust to -1, so that the corresponding sustain value is nilled out
+			sust = -1
+		end
+		
+		if sust == -1 then -- If the sustain was nil and a note-ON didn't occur, or if a note-off occurred, set the sustain to nil
+			self.sustain[note[1]][note[3]] = nil
+		else -- If a note-ON occurred, set the relevant sustain to the note's duration value
+			self.sustain[note[1]][note[3]] = sust
+		end
+		
 	end
 	
-	self.sustain[note[2]][note[3]] = tarnote
-
 	self:noteSend(note)
 	
 end
@@ -873,7 +862,7 @@ end
 -- Iterate through a sequence's incoming flags, increase its tick pointer under certain conditions, and send off all relevant notes
 function Extrovert:iterateSequence(s)
 
-	if not flatCompare(self.seq[s].incoming, {}) then -- If the sequence has incoming flags...
+	if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 	
 		if self.seq[s].incoming.gate ~= nil then -- If the GATE command is incoming...
 			if (self.tick % self.bigchunk) == 0 then -- On global ticks that correspond to the first tick in the biggest chunk within all loaded sequences...
@@ -912,12 +901,12 @@ end
 function Extrovert:decayAllSustains()
 
 	for chan, notes in pairs(self.sustain) do
-		for note, params in pairs(notes) do
-			if params.active then -- If the sustain is active...
+		if next(notes) ~= nil then -- Check for active note-sustains within the channel before trying to act upon them
+			for note, dur in pairs(notes) do
 			
-				self.sustain[chan][note].dur = math.max(0, params.dur - 1) -- Decrease the relevant duration value
+				self.sustain[chan][note] = math.max(0, dur - 1) -- Decrease the relevant duration value
 			
-				if params.dur == 0 then -- If the duration has expired...
+				if dur == 0 then -- If the duration has expired...
 					self:noteParse({chan, 128, note, 127, 0}) -- Parse a noteoff for the relevant channel and note
 				end
 				
@@ -975,7 +964,7 @@ function Extrovert:propagateBPM()
 end
 
 -- Initialize Extrovert's Puredata tempo apparatus
-function Extrovert:initializeClock()
+function Extrovert:startClock()
 
 	if (self.clocktype == "master") then
 		pd.send("extrovert-clock-type", "float", {1})
@@ -986,6 +975,8 @@ function Extrovert:initializeClock()
 	elseif (self.clocktype == "none") then
 		pd.send("extrovert-clock-type", "float", {4})
 	end
+	
+	pd.post("Initialized clock type")
 	
 end
 
@@ -1054,11 +1045,15 @@ function Extrovert:sendVisibleSeqRows()
 end
 
 -- Initialize the parameters of the Puredata Monome apparatus
-function Extrovert:initializeMonome()
+function Extrovert:startMonome()
+
+	pd.post(self.prefs.monome.osctype .. " " .. type(self.prefs.monome.osctype)) -- DEBUGGING
+	pd.post(self.prefs.monome.osclisten .. " " .. type(self.prefs.monome.osclisten)) -- DEBUGGING
+	pd.post(self.prefs.monome.oscsend .. " " .. type(self.prefs.monome.oscsend)) -- DEBUGGING
 
 	pd.send("extrovert-osc-type", "float", {self.prefs.monome.osctype})
-	pd.send("extrovert-osc-out-port", "float", {self.prefs.monome.oscsend})
 	pd.send("extrovert-osc-in-port", "float", {self.prefs.monome.osclisten})
+	pd.send("extrovert-osc-out-port", "float", {self.prefs.monome.oscsend})
 	
 	pd.post("Initialized Monome settings")
 	
@@ -2292,18 +2287,17 @@ end
 
 function Extrovert:initialize(sel, atoms)
 
-	-- 1. Key commands
-	-- 2. Monome button
-	-- 3. Monome ADC
-	-- 4. MIDI CLOCK IN
-	self.inlets = 4
+	-- 1. Loadbang
+	-- 2. Key commands
+	-- 3. Monome button
+	-- 4. Monome ADC
+	-- 5. MIDI CLOCK IN
+	self.inlets = 5
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
 	
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
-	
-	pd.post("Dye 1") -- DEBUGGING
 	
 	self.cmdnames = self.prefs.cmdnames -- Holds the command-types that the user toggles between, and their corresponding MIDI command values
 	self.notenames = self.prefs.notenames -- Table of user-readable note values, indexed appropriately
@@ -2376,6 +2370,21 @@ function Extrovert:initialize(sel, atoms)
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
+	
+	self.sustain = {} -- Holds all sustain-tracking data
+	for i = 0, 15 do
+		self.sustain[i] = {}
+	end
+
+	return true
+	
+end
+
+
+
+-- Run through Extrovert's on-startup functions, after receiving a bang from [loadbang].
+-- Some of these use pd.send(), which can't be used from within initialize() or postinitialize() (or from within any other functions thereby invoked), so this is a workaround.
+function Extrovert:in_1_bang()
 
 	pd.post("Dye 2") -- DEBUGGING
 	
@@ -2403,11 +2412,11 @@ function Extrovert:initialize(sel, atoms)
 	
 	pd.post("Dye 8") -- DEBUGGING
 	
-	self:initializeMonome()
+	self:startMonome()
 	
 	pd.post("Dye 9") -- DEBUGGING
 	
-	self:initializeClock()
+	self:startClock()
 	
 	pd.post("Dye 10") -- DEBUGGING
 	
@@ -2419,14 +2428,12 @@ function Extrovert:initialize(sel, atoms)
 	
 	pd.post("Dye 12") -- DEBUGGING
 
-	return true
-
 end
 
 
 
 -- Parse incoming commands from the computer-keyboard
-function Extrovert:in_1_list(key)
+function Extrovert:in_2_list(key)
 
 	-- Chop the "_L" and "_R" off incoming Shift keystrokes
 	if key[2]:sub(1, 5) == "Shift" then
@@ -2478,7 +2485,7 @@ end
 
 
 -- Parse Monome button commands
-function Extrovert:in_2_list(t)
+function Extrovert:in_3_list(t)
 
 	local x = t[1] + 1
 	local y = t[2] + 1
@@ -2504,14 +2511,14 @@ end
 
 
 -- Parse Monome ADC commands
-function Extrovert:in_3_list(t)
+function Extrovert:in_4_list(t)
 
 end
 
 
 
 -- Parse incoming tempo ticks or MIDI CLOCK commands
-function Extrovert:in_4(sel, m)
+function Extrovert:in_5(sel, m)
 
 	if sel == "bang" then -- Accept [metro]-based tempo ticks
 	
