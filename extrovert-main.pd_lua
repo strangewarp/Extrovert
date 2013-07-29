@@ -1146,9 +1146,11 @@ function Extrovert:saveData()
 
 	for i = 1, (self.gridy - 2) * self.gridx do
 	
-		local opus = {
+		local score = {
 			24, -- Ticks per beat (e.g. quarter note)
-			{"set_tempo", 0, 60000000 / self.bpm}, -- Microseconds per beat
+			{
+				{"set_tempo", 0, 60000000 / self.bpm}, -- Microseconds per beat
+			},
 		}
 		
 		for tick, notes in ipairs(self.seq[i].tick) do
@@ -1156,27 +1158,27 @@ function Extrovert:saveData()
 			for num, v in ipairs(notes) do
 			
 				-- Convert Extrovert tabes into their MIDIlua counterparts
-				if v[1] == 144 then
-					table.insert(opus, {"note", tick, v[5], v[2], v[3], v[4]})
-				elseif v[1] == 160 then
-					table.insert(opus, {"pitch_wheel_change", tick, v[2], v[3]})
-				elseif v[1] == 176 then
-					table.insert(opus, {"control_change", tick, v[2], v[3], v[4]})
-				elseif v[1] == 192 then
-					table.insert(opus, {"patch_change", tick, v[2], v[3]})
-				elseif v[1] == 208 then
-					table.insert(opus, {"key_after_touch", tick, v[2], v[3], v[4]})
-				elseif v[1] == 224 then
-					table.insert(opus, {"pitch_wheel_change", tick, v[2], v[3]})
+				if v[2] == 144 then
+					table.insert(score[2], {"note", tick, v[5], v[1], v[3], v[4]})
+				elseif v[2] == 160 then
+					table.insert(score[2], {"pitch_wheel_change", tick, v[1], v[3]})
+				elseif v[2] == 176 then
+					table.insert(score[2], {"control_change", tick, v[1], v[3], v[4]})
+				elseif v[2] == 192 then
+					table.insert(score[2], {"patch_change", tick, v[1], v[3]})
+				elseif v[2] == 208 then
+					table.insert(score[2], {"key_after_touch", tick, v[1], v[3], v[4]})
+				elseif v[2] == 224 then
+					table.insert(score[2], {"pitch_wheel_change", tick, v[1], v[3]})
 				end
 				
 			end
 			
 		end
-	
+		
 		-- Save the table into a MIDI file within the savefolder, using MIDI.lua functions
 		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'w'))
-		midifile:write(MIDI.score2midi(opus))
+		midifile:write(MIDI.score2midi(score))
 		midifile:close()
 	
 		pd.post("Saved sequence " .. i .. "!")
@@ -1219,17 +1221,17 @@ function Extrovert:loadData()
 		
 			-- Convert various values into their Extrovert counterparts
 			if v[1] == "note" then
-				table.insert(outtab[v[2]], {144, v[4], v[5], v[6], v[3]})
+				table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
 			elseif v[1] == "key_after_touch" then
-				table.insert(outtab[v[2]], {208, v[3], v[4], v[5], 0})
+				table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
 			elseif v[1] == "control_change" then
-				table.insert(outtab[v[2]], {176, v[3], v[4], v[5], 0})
+				table.insert(outtab[v[2]], {v[3], 176, v[4], v[5], 0})
 			elseif v[1] == "patch_change" then
-				table.insert(outtab[v[2]], {192, v[3], v[4], 0, 0})
+				table.insert(outtab[v[2]], {v[3], 192, v[4], 0, 0})
 			elseif v[1] == "channel_after_touch" then
-				table.insert(outtab[v[2]], {160, v[3], v[4], 0, 0})
+				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
 			elseif v[1] == "pitch_wheel_change" then
-				table.insert(outtab[v[2]], {224, v[3], v[4], 0, 0})
+				table.insert(outtab[v[2]], {v[3], 224, v[4], 0, 0})
 			elseif v[1] == "set_tempo" then
 				self.bpm = 60000000 / v[3]
 			else
