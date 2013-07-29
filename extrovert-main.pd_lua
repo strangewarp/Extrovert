@@ -1047,10 +1047,6 @@ end
 -- Initialize the parameters of the Puredata Monome apparatus
 function Extrovert:startMonome()
 
-	pd.post(self.prefs.monome.osctype .. " " .. type(self.prefs.monome.osctype)) -- DEBUGGING
-	pd.post(self.prefs.monome.osclisten .. " " .. type(self.prefs.monome.osclisten)) -- DEBUGGING
-	pd.post(self.prefs.monome.oscsend .. " " .. type(self.prefs.monome.oscsend)) -- DEBUGGING
-
 	pd.send("extrovert-osc-type", "float", {self.prefs.monome.osctype})
 	pd.send("extrovert-osc-in-port", "float", {self.prefs.monome.osclisten})
 	pd.send("extrovert-osc-out-port", "float", {self.prefs.monome.oscsend})
@@ -1176,6 +1172,8 @@ function Extrovert:saveData()
 			
 		end
 		
+		table.insert(score[2], {"end_track", #self.seq[i].tick}) -- Insert an end-point into the track, so that trailing empty ticks aren't clipped
+		
 		-- Save the table into a MIDI file within the savefolder, using MIDI.lua functions
 		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'w'))
 		midifile:write(MIDI.score2midi(score))
@@ -1197,39 +1195,40 @@ function Extrovert:loadData()
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
 	for i = 1, (self.gridy - 2) * self.gridx do
 	
-		local tab = {}
-	
 		-- Load the table from a MIDI file within the savefolder, using MIDI.lua functions
-		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'r'))
-		midifile:read(MIDI.midi2score(tab))
+		local fileloc = self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid"
+		pd.post("Now loading: " .. fileloc)
+		
+		local midifile = assert(io.open(fileloc, 'r'))
+		local tab = MIDI.midi2score(midifile:read('*all'))
 		midifile:close()
 		
 		local outtab = { {} }
 		local stats = MIDI.score2stats(tab)
-		local tpq = table.remove(tab, 1)
+		local tpq = tab[1]
 		if tpq ~= 24 then
 			tpq = 24
 			pd.post("Ticks Per Beat was not 24! Reformatted it to 24. This will affect playback speed.")
 		end
 		
-		-- Insert items into the output table until it matches the number of ticks in the MIDIlua score table
+		-- Insert items into the output table until it matches the number of ticks in the MIDIlua score
 		while #outtab < stats.nticks do
 			table.insert(outtab, {})
 		end
 		
-		for k, v in ipairs(tab) do
+		for k, v in ipairs(tab[2]) do
 		
 			-- Convert various values into their Extrovert counterparts
 			if v[1] == "note" then
 				table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
-			elseif v[1] == "key_after_touch" then
-				table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
+			elseif v[1] == "channel_after_touch" then
+				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
 			elseif v[1] == "control_change" then
 				table.insert(outtab[v[2]], {v[3], 176, v[4], v[5], 0})
 			elseif v[1] == "patch_change" then
 				table.insert(outtab[v[2]], {v[3], 192, v[4], 0, 0})
-			elseif v[1] == "channel_after_touch" then
-				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
+			elseif v[1] == "key_after_touch" then
+				table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
 			elseif v[1] == "pitch_wheel_change" then
 				table.insert(outtab[v[2]], {v[3], 224, v[4], 0, 0})
 			elseif v[1] == "set_tempo" then
@@ -1240,14 +1239,14 @@ function Extrovert:loadData()
 			
 		end
 		
-		-- Insert padding ticks at the end of the sequence, so that it fits the Monome without incurring button-based rounding errors
+		-- Insert padding ticks at the end of the sequence, so it fits the Monome-width without the potential for buton-based rounding errors
 		while (#outtab % self.gridx) ~= 0 do
 			table.insert(outtab, {})
 		end
 		
 		self.seq[i].tick = outtab
 		
-		pd.post("Loaded sequence " .. i .. "!")
+		pd.post("Loaded sequence " .. i .. ": " .. #outtab .. " ticks")
 		
 	end
 	
@@ -2388,47 +2387,25 @@ end
 -- Some of these use pd.send(), which can't be used from within initialize() or postinitialize() (or from within any other functions thereby invoked), so this is a workaround.
 function Extrovert:in_1_bang()
 
-	pd.post("Dye 2") -- DEBUGGING
-	
 	self:assignHotseatsToCmds()
-	
-	pd.post("Dye 3") -- DEBUGGING
 	
 	self:assignPianoKeysToCmds()
 	
-	pd.post("Dye 4") -- DEBUGGING
-	
 	self:resetAllSequences() -- Populate the self.seq table with default data
-	
-	pd.post("Dye 5") -- DEBUGGING
 	
 	self:makeCleanHistory() -- Put default values in the history table, so the undo/redo code doesn't wig out
 	
-	pd.post("Dye 6") -- DEBUGGING
-	
 	self:buildGUI()
-	
-	pd.post("Dye 7") -- DEBUGGING
 	
 	self:populateGUI()
 	
-	pd.post("Dye 8") -- DEBUGGING
-	
 	self:startMonome()
-	
-	pd.post("Dye 9") -- DEBUGGING
 	
 	self:startClock()
 	
-	pd.post("Dye 10") -- DEBUGGING
-	
 	self:propagateBPM()
 	
-	pd.post("Dye 11") -- DEBUGGING
-	
 	self:startTempo()
-	
-	pd.post("Dye 12") -- DEBUGGING
 
 end
 
