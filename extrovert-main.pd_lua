@@ -539,73 +539,127 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	
 end
 
+-- Transpose tick items from a sequence into a portion of a GUI column's "visible" table
+function Extrovert:getTickItems(visible, ticks, space, increment, limit, direction)
+
+	local tabkey = (((self.pointer + ((increment * self.quant) * direction)) - 1) % #ticks) + 1
+	
+	if ticks[tabkey][1] ~= nil then -- If tick isn't empty...
+	
+		local start = 1
+		local finish = #ticks[tabkey]
+		
+		if direction == -1 then
+			start, finish = finish, start
+		end
+		
+		for k = start, finish, direction do -- For every note in the tick, in the appropriate directional order...
+			if space ~= limit then -- If we haven't reached the limit yet...
+				if direction == 1 then
+					table.insert(visible, {tabkey, k, unpack(ticks[tabkey][k])})
+				else
+					table.insert(visible, 1, {tabkey, k, unpack(ticks[tabkey][k])})
+				end
+				space = space + direction -- Decrease the number of remaining spaces
+			end
+		end
+		
+		-- Remove a number of visible items, so that the notepointer slot within the tick is properly centered
+		if (tabkey == self.pointer)
+		and (increment == 0)
+		then
+			for i = start, self.notepointer - direction, direction do
+				if direction == 1 then
+					table.remove(visible, 1)
+				else
+					table.remove(visible, #visible)
+				end
+				space = space - direction
+			end
+		end
+		
+	else -- If tick is empty...
+		if space ~= limit then -- If we haven't reached the top of the column yet...
+			if direction == 1 then
+				table.insert(visible, {tabkey, false, "--", "---", "------", "---", "----"}) -- Insert a blank item at the end of the visible table
+			else
+				table.insert(visible, 1, {tabkey, false, "--", "---", "------", "---", "----"}) -- Insert a blank item at the start of the visible table
+			end
+			space = space + direction -- Decrease the number of remaining spaces
+		end
+	end
+	
+	return visible, space
+
+end
+
+-- Transpose a slice of skipped items into a portion of a GUI column's "visible" table, if there is currently quantization
+function Extrovert:getSkippedItems(visible, ticks, space, increment, limit, direction)
+
+	if self.quant > 1 then -- If we are in a quant-skip layout...
+	
+		if space ~= limit then
+			
+			local tabkey = (((self.pointer + ((increment * self.quant) * direction)) - 1) % #ticks) + 1
+			
+			local skip = 0
+			local i = (((tabkey + direction) - 1) % #ticks) + 1 -- Set the iterator to one space beyond the tabkey index
+			local finish = (((tabkey + (self.quant * direction) + (direction * -1)) - 1) % #ticks) + 1 -- Set the iterator's goalpoint to the space before the next uncollapsed index
+			while i ~= finish do -- Until we reach the goalpoint...
+				if ticks[i][1] ~= nil then -- If the tick contains any commands...
+					skip = skip + #ticks[i] -- Increase the number of skipped commands
+				end
+				i = (((i + direction) - 1) % #ticks) + 1 -- Iterate by 1 space, in the given direction, wrapped to the sequence's size
+			end
+			
+			if direction == 1 then
+				table.insert(visible, {".....", false, "..", skip, "skipped", "...", "...."}) -- Put a skipped-notes entry into the visible table
+			else
+				table.insert(visible, 1, {".....", false, "..", skip, "skipped", "...", "...."}) -- Put a skipped-notes entry into the visible table
+			end
+			space = space + direction -- Decrease the number of remaining spaces
+			
+		end
+		
+	end
+	
+	return visible, space
+	
+end
+
 -- Update a column of items in the editor panel GUI
 function Extrovert:updateEditorColumn(x)
 
 	local cols = self.prefs.gui.editor.cols
 	local rows = self.prefs.gui.editor.rows
 
-	local xcenter = math.ceil((self.prefs.gui.editor.cols - 1) / 2)
+	local xcenter = math.ceil((cols - 1) / 2)
 	local ycenter = math.floor((rows - 1) / 2)
 	
-	-- Offset the ticks table accordingly, for all visible-but-non-active sequences
-	local ticks = self.seq[((((self.key + x) - xcenter) - 1) % #self.seq) + 1].tick
-
-	local visibleitems = {}
+	local visible = {}
 	
-	for q = self.pointer, #ticks + (self.pointer - 1), self.quant do -- Seek out and organize the values for a properly time-dilated column
+	local space = ycenter
+	local increment = 1
+	local ticks = self.seq[((((self.key + x) - xcenter) - 1) % #self.seq) + 1].tick -- Get the relevant sequence of ticks
 	
-		local qkey = ((q - 1) % #ticks) + 1
-		local items = ticks[qkey]
-		
-		if (items[1] ~= nil)
-		and (#items >= 1)
-		then -- Insert all notes and commands that fall on uncollapsed ticks
-			for k, v in ipairs(items) do
-				table.insert(visibleitems, {qkey, k, unpack(v)})
-			end
-		else -- When an uncollapsed tick is empty, insert an empty item
-			table.insert(visibleitems, {qkey, false, "--", "---", "------", "---", "----"})
-		end
-		
-		if self.quant ~= 1 then -- If the quantization value isn't a single tick, insert collapsed items that display the number of notes skipped between editor items
-		
-			local skippeditems = 0
-			
-			for i = qkey + 1, qkey + (self.quant - 1) do
-				local ikey = ((i - 1) % #ticks) + 1
-				if ticks[ikey][1] ~= nil then
-					skippeditems = skippeditems + #ticks[ikey]
-				end
-			end
-			
-			table.insert(visibleitems, {".....", false, "..", skippeditems, "skipped", "...", "...."})
-			
-		end
-		
+	while space ~= 0 do -- Grab all items from the first half of the column
+		visible, space = self:getSkippedItems(visible, ticks, space, increment - 1, 0, -1)
+		visible, space = self:getTickItems(visible, ticks, space, increment, 0, -1)
+		increment = increment + 1
 	end
 	
-	-- If the notepointer doesn't occupy the first item of a tick, cycle around the visible items until the proper item matches the active row
-	if self.notepointer > 1 then
-		for i = 1, self.notepointer - 1 do
-			table.insert(visibleitems, table.remove(visibleitems, 1))
-		end
-	end
-
-	local botkey = 1
-	for y = ycenter, rows - 1 do -- Fill the items from the center-row to the end-row
-		local v = visibleitems[botkey]
-		self:updateEditorItem(x, y, unpack(v))
-		botkey = (botkey % #visibleitems) + 1
+	space = ycenter
+	increment = 0
+	while space ~= rows do -- Grab all items from the second half of the column
+		visible, space = self:getTickItems(visible, ticks, space, increment, rows, 1)
+		visible, space = self:getSkippedItems(visible, ticks, space, increment, rows, 1)
+		increment = increment + 1
 	end
 	
-	local topkey = #visibleitems
-	for y = ycenter - 1, 0, -1 do -- Fill the items from just above the center-row to the top-row
-		local v = visibleitems[topkey]
-		self:updateEditorItem(x, y, unpack(v))
-		topkey = ((topkey - 2) % #visibleitems) + 1
+	for y = 0, rows - 1 do
+		self:updateEditorItem(x, y, unpack(visible[y + 1]))
 	end
-
+	
 end
 
 -- Update the main (central) editor column
