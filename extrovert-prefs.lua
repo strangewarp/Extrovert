@@ -59,12 +59,14 @@ return {
 
 	gui = {
 	
-		seq = { -- Sequence-grid rows
+		seq = { -- Sequence-activity columns
 		
-			height = 10, -- Segment height (in pixels)
-			width = 40, -- Segment width (in pixels)
-			xmargin = 2, -- Horizontal margins (in pixels)
-			ymargin = 4, -- Vertical margins (in pixels)
+			height = 50, -- Segment height (in pixels)
+			width = 38, -- Column width (in pixels)
+			xmargin = 5, -- Horizontal margins (in pixels)
+			ymargin = 2, -- Vertical margins (in pixels)
+			
+			keyheight = 12, -- Page-key segment height (in pixels)
 			
 		},
 		
