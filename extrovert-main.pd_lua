@@ -348,19 +348,32 @@ function Extrovert:readableNote(note)
 
 end
 
--- Update a given row in the sequence-grid GUI
+-- Update a given button in the sequence-activity-grid GUI
 function Extrovert:updateSeqButton(k)
 
 	local outname = "extrovert-seq-" .. k
-	local outcol = self.color[9][1]
+	local outcolor = self.color[9][1]
 	
-	if self.seq[k].active == true then -- Change to an active-color if the cell is active
-		outcol = self.color[8][1]
+	if (self.seq[k].active == true)
+	and (next(self.seq[k].incoming) ~= nil)
+	then -- Change to an active-and-pending-color if the cell is active AND has incoming commands
+		outcolor = self.color[8][3]
+	elseif self.seq[k].active == true then -- Change to an active-color if the cell is active
+		outcolor = self.color[8][1]
 	elseif next(self.seq[k].incoming) ~= nil then -- Change to a pending-color if the cell has incoming commands
-		outcol = self.color[6][1]
+		outcolor = self.color[6][1]
 	end
 	
-	pd.send("extrovert-color-out", "list", rgbOutList(outname, outcol, outcol))
+	pd.send("extrovert-color-out", "list", rgbOutList(outname, outcolor, outcolor))
+
+end
+
+-- Update all of a single page's activity-buttons in the sequence-activity-grid GUI
+function Extrovert:updateSeqPage(i)
+
+	for k = 1, self.gridy - 2 do
+		self:updateSeqButton(k + ((i - 1) * (self.gridy - 2)))
+	end
 
 end
 
@@ -775,7 +788,7 @@ function Extrovert:populateLabels()
 
 	for i = 0, self.gridx - 1 do -- Colorize and label the page-label cells
 		pd.send("extrovert-color-out", "list", rgbOutList("extrovert-seq-key-" .. i, self.color[7][1], self.color[5][1]))
-		pd.send("extrovert-seq-key-" .. i, "label", {"--P" .. i .. "--"})
+		pd.send("extrovert-seq-key-" .. i, "label", {"P" .. (i - 1)})
 	end
 
 end
@@ -1070,6 +1083,13 @@ function Extrovert:sendLED(x, y, s)
 
 end
 
+-- Send commands through the Monome apparatus to darken every button's LED
+function Extrovert:darkenAllButtons()
+
+	pd.send("extrovert-monome-out-all", "list", {0}) -- Send darkness to the Puredata Monome-grid apparatus
+
+end
+
 -- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
 -- If xpoint is set to false, then a blank row is sent.
 function Extrovert:sendSimpleRow(xpoint, yrow)
@@ -1080,17 +1100,17 @@ function Extrovert:sendSimpleRow(xpoint, yrow)
 	for b = 0, self.gridx - 8, 8 do
 	
 		if (xpoint ~= false)
-		and (xpoint - b) < self.gridx
+		and rangeCheck(xpoint, b, b + 8)
 		then -- If the row contains a lit button, and that button is within this byte-slice, insert the corresponding on-value
-			table.insert(rowbytes, 2 ^ (xpoint - b))
+			rowbytes[#rowbytes + 1] = 2 ^ xpoint
 		else -- Else, insert a byte corresponding to 8 darkened buttons
-			table.insert(rowbytes, 0)
+			rowbytes[#rowbytes + 1] = 0
 		end
 	
+		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
+		
 	end
 	
-	pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
-
 end
 
 -- Send the page-command row a new set of button data
@@ -1141,9 +1161,9 @@ end
 -- Parse an incoming sequence-row command from the Monome
 function Extrovert:parseSeqButton(x, y, s)
 
-	if s == 1 then
+	if s == 1 then -- On down-keystrokes...
 	
-		local target = ((self.page - 1) * (self.gridy - 2)) + y -- Convert y row, and page value, into a sequence-key
+		local target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
 		
 		-- Apply all active control-tags to the target sequence's "incoming" table
 		for _, v in pairs(self.flagnames) do
@@ -1155,6 +1175,8 @@ function Extrovert:parseSeqButton(x, y, s)
 		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
 		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
+		self:updateSeqButton(target) -- Reflect these changes in the on-screen GUI
+		
 	end
 
 end
@@ -1162,7 +1184,7 @@ end
 -- Parse an incoming page-row command from the Monome
 function Extrovert:parsePageButton(x, s)
 
-	if s == 1 then
+	if s == 1 then -- On down-keystrokes...
 
 		local cmdflag = false -- Gets toggled to true if any command buttons are being pressed
 		
@@ -1174,6 +1196,7 @@ function Extrovert:parsePageButton(x, s)
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
 					table.insert(self.seq[i].incoming, v[1])
 				end
+				self:updateSeqPage(x) -- Reflect this change in the on-screen GUI
 			end
 		end
 
@@ -1184,10 +1207,11 @@ function Extrovert:parsePageButton(x, s)
 			self.page = x -- Tab to the selected page
 			
 			self:sendPageRow()
-			self:sendVisibleSeqRows()
 			
 		end
 		
+		self:sendVisibleSeqRows()
+
 	end
 
 end
@@ -1198,7 +1222,7 @@ function Extrovert:parseCommandButton(x, s)
 	local light = 1 -- Stays set to 1 if the button is to be lit; else will be set to 0
 	local sendx = math.min(x, #self.flagnames) -- Reduce x, so that all slow-buttons are collapsed into the slow-flag
 	
-	if s == 1 then
+	if s == 1 then -- On down-keystrokes...
 
 		if sendx == #self.flagnames then -- Special action for slowbuttons:
 			self.slowbutton = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
@@ -2463,6 +2487,15 @@ end
 
 
 
+-- Finalize function: only activated when Extrovert is closed down
+function Extrovert:finalize()
+
+	self:darkenAllButtons() -- Darken all Monome buttons, so that they don't stay lit after the program shuts down
+
+end
+
+
+
 -- Run through Extrovert's on-startup functions, after receiving a bang from [loadbang].
 -- Some of these use pd.send(), which can't be used from within initialize() or postinitialize() (or from within any other functions thereby invoked), so this is a workaround.
 function Extrovert:in_1_bang()
@@ -2550,19 +2583,14 @@ function Extrovert:in_3_list(t)
 
 	local x = t[1] + 1
 	local y = t[2] + 1
+	local s = t[3]
 	
 	if y == (self.gridy - 1) then -- Parse page-row commands
-	
-		self:parsePageButton(x)
-	
+		self:parsePageButton(x, s)
 	elseif y == self.gridy then -- Parse control-row commands
-	
-		self:parseCommandButton(x, t[3])
-	
+		self:parseCommandButton(x, s)
 	else -- Parse sequence-button commands
-	
 		self:parseSeqButton(x, y, s)
-	
 	end
 	
 	pd.post("Monome cmd: " .. table.concat(t, " "))
