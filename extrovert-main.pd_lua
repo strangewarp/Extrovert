@@ -886,6 +886,19 @@ function Extrovert:noteParse(note)
 	
 end
 
+-- Send NOTE-OFFs for all presently playing notes
+function Extrovert:haltAllSustains()
+
+	for chan, susts in pairs(self.sustain) do
+		if next(susts) ~= nil then
+			for note, _ in pairs(susts) do
+				self:noteParse(128 + chan, note, 127)
+			end
+		end
+	end
+
+end
+
 -- Send all notes within a given tick in a given sequence
 function Extrovert:sendTickNotes(s, t)
 
@@ -985,6 +998,17 @@ function Extrovert:iterateSequence(s)
 			self:sendTickNotes(s, self.seq[s].pointer)
 		end
 	
+		-- Update the sequence's Monome LEDs, if applicable
+		local oldoff = -1
+		if self.seq[s].reverse then
+			oldoff = 1
+		end
+		local newsub = math.ceil(self.gridx * (self.seq[s].pointer / #self.seq[s].tick))
+		local oldsub = math.ceil(self.gridx * (((((self.seq[s].pointer + oldoff) - 1) % #self.seq[s].tick) + 1) / #self.seq[s].tick))
+		if newsub ~= oldsub then
+			self:sendSimpleRow(newsub - 1, (s % (self.gridy - 2)) - 1)
+		end
+		
 	end
 	
 	
@@ -1096,20 +1120,24 @@ function Extrovert:sendSimpleRow(xpoint, yrow)
 
 	local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
 	
+	if self.prefs.monome.osctype == 0 then
+		rowbytes = {yrow} -- If in MonomeSerial communications mode, remove the X-offset value from the rowbytes table so that the byte sequence is properly formed
+	end
+	
 	-- Generate a series of bytes, each holding the on-off values for an 8-button slice of the relevant row
 	for b = 0, self.gridx - 8, 8 do
 	
 		if (xpoint ~= false)
-		and rangeCheck(xpoint, b, b + 8)
-		then -- If the row contains a lit button, and that button is within this byte-slice, insert the corresponding on-value
-			rowbytes[#rowbytes + 1] = 2 ^ xpoint
+		and rangeCheck(xpoint, b, b + 7)
+		then -- If the row contains a lit button, and that button is within this byte-slice, insert the corresponding bitwise on-value
+			table.insert(rowbytes, math.max(1, 2 ^ (xpoint - b)))
 		else -- Else, insert a byte corresponding to 8 darkened buttons
-			rowbytes[#rowbytes + 1] = 0
+			table.insert(rowbytes, 0)
 		end
 	
-		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
-		
 	end
+	
+	pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
 	
 end
 
@@ -1139,7 +1167,7 @@ end
 -- Send the Monome button-data for all visible sequence-rows
 function Extrovert:sendVisibleSeqRows()
 
-	for i = ((self.gridy - 2) * (self.page - 1)) + 1, (self.gridy - 2) * self.page do
+	for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
 		self:sendSeqRow(i)
 	end
 
@@ -1167,7 +1195,7 @@ function Extrovert:parseSeqButton(x, y, s)
 		
 		-- Apply all active control-tags to the target sequence's "incoming" table
 		for _, v in pairs(self.flagnames) do
-			if self.ctrlflags[v[1]] ~= false then
+			if self.ctrlflags[v] ~= false then
 				table.insert(self.seq[target].incoming, v[1])
 			end
 		end
@@ -1175,7 +1203,11 @@ function Extrovert:parseSeqButton(x, y, s)
 		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
 		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
-		self:updateSeqButton(target) -- Reflect these changes in the on-screen GUI
+		if self.seq[target].incoming.gate == nil then -- If the sequence holds no incoming gate command...
+			self:sendSimpleRow(x - 1, y - 1) -- Reflect this keystroke in the Monome LEDs
+		end
+			
+		self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
 		
 	end
 
@@ -1190,7 +1222,7 @@ function Extrovert:parsePageButton(x, s)
 		
 		-- Check all listed control-row flags
 		for _, v in pairs(self.flagnames) do
-			if self.ctrlflags[v[1]] ~= false then
+			if self.ctrlflags[v] ~= false then
 				cmdflag = true
 				-- Insert the active flags' corresponding commands into every sequence on the relevant page
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
@@ -2489,6 +2521,8 @@ end
 
 -- Finalize function: only activated when Extrovert is closed down
 function Extrovert:finalize()
+
+	self:haltAllSustains() -- Send noteoffs corresponding to all active sustains
 
 	self:darkenAllButtons() -- Darken all Monome buttons, so that they don't stay lit after the program shuts down
 
