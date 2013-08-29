@@ -354,13 +354,13 @@ function Extrovert:updateSeqButton(k)
 	local outname = "extrovert-seq-" .. k
 	local outcolor = self.color[9][1]
 	
-	if (self.seq[k].active == true)
-	and (next(self.seq[k].incoming) ~= nil)
-	then -- Change to an active-and-pending-color if the cell is active AND has incoming commands
-		outcolor = self.color[8][3]
-	elseif self.seq[k].active == true then -- Change to an active-color if the cell is active
-		outcolor = self.color[8][1]
-	elseif next(self.seq[k].incoming) ~= nil then -- Change to a pending-color if the cell has incoming commands
+	if self.seq[k].active == true then
+		if next(self.seq[k].incoming) ~= nil then -- If the sequence is active AND has incoming commands, change to an active-and-pending-color
+			outcolor = self.color[8][3]
+		else -- If the sequence is active AND has no incoming commands, change to an active-color
+			outcolor = self.color[8][1]
+		end
+	elseif next(self.seq[k].incoming) ~= nil then -- If the sequence has incoming commands AND is not active, change to a pending-color
 		outcolor = self.color[6][1]
 	end
 	
@@ -954,6 +954,7 @@ function Extrovert:parseIncomingFlags(s)
 		end
 		
 		if flags.slow ~= nil then -- Slow is treated differently, because it contains either a numerical value or nil
+			self.seq[s].slowtick = 0
 			self.seq[s].slow = flags.slow
 		else
 			self.seq[s].slow = false
@@ -963,6 +964,10 @@ function Extrovert:parseIncomingFlags(s)
 	
 	-- Empty the incoming table
 	self.seq[s].incoming = {}
+	
+	self:sendVisibleSeqRows() -- Send all visible Monome sequence rows
+	
+	self:updateSeqButton(s) -- Update the sequence's on-screen GUI button
 
 end
 
@@ -972,7 +977,7 @@ function Extrovert:iterateSequence(s)
 	if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 	
 		if self.seq[s].incoming.gate ~= nil then -- If the GATE command is incoming...
-			if (self.tick % self.bigchunk) == 0 then -- On global ticks that correspond to the first tick in the biggest chunk within all loaded sequences...
+			if (self.tick % self.totalgate) == 0 then -- On global ticks that correspond to the gate-tick amount...
 				self:parseIncomingFlags(s)
 			end
 		else
@@ -988,11 +993,15 @@ function Extrovert:iterateSequence(s)
 			newpoint = ((self.seq[s].pointer - 2) % #self.seq[s].tick) + 1
 		end
 	
-		if self.seq[s].slow ~= false then -- If the slow flag is active, only increment the pointer and send tick-notes on the appropriate global ticks
-			if (self.tick % self.seq[s].slow) == 0 then
+		if self.seq[s].slow ~= false then -- If the slow flag is active, only increment the pointer and send tick-notes on the appropriate local slowticks
+		
+			if self.seq[s].slowtick == 0 then
 				self.seq[s].pointer = newpoint
 				self:sendTickNotes(s, self.seq[s].pointer)
 			end
+			
+			self.seq[s].slowtick = (self.seq[s].slowtick + 1) % self.seq[s].slow -- Increment the local slowtick after the fact, as we want the first tick to occur upon activation
+			
 		else -- Else, increment the pointer and send tick-notes on every global tick
 			self.seq[s].pointer = newpoint
 			self:sendTickNotes(s, self.seq[s].pointer)
@@ -1005,13 +1014,13 @@ function Extrovert:iterateSequence(s)
 		end
 		local newsub = math.ceil(self.gridx * (self.seq[s].pointer / #self.seq[s].tick))
 		local oldsub = math.ceil(self.gridx * (((((self.seq[s].pointer + oldoff) - 1) % #self.seq[s].tick) + 1) / #self.seq[s].tick))
-		if newsub ~= oldsub then
-			self:sendSimpleRow(newsub - 1, (s % (self.gridy - 2)) - 1)
+		if (newsub ~= oldsub) -- If the new subsection corresponds to a different button than the previous subsection...
+		and rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) -- And the sequence is upon a currently-visible page...
+		then
+			self:sendSimpleRow(newsub - 1, (s - 1) % (self.gridy - 2)) -- Send the sequence's Monome GUI row
 		end
 		
 	end
-	
-	
 	
 end
 
@@ -1137,6 +1146,8 @@ function Extrovert:sendSimpleRow(xpoint, yrow)
 	
 	end
 	
+	pd.post("LED send: " .. tostring(xpoint) .. " x " .. yrow) -- DEBUGGING
+	
 	pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
 	
 end
@@ -1193,22 +1204,23 @@ function Extrovert:parseSeqButton(x, y, s)
 	
 		local target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
 		
-		-- Apply all active control-tags to the target sequence's "incoming" table
+		-- Apply all active control-flags to the target sequence's "incoming" table
 		for _, v in pairs(self.flagnames) do
 			if self.ctrlflags[v] ~= false then
-				table.insert(self.seq[target].incoming, v[1])
+				
+				-- Copy the global flag value into the sequence's incoming table. This will copy over any variable status from e.g. the "slow" button and whatnot.
+				self.seq[target].incoming[v] = self.ctrlflags[v]
+				
 			end
 		end
 		
 		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
 		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
-		if self.seq[target].incoming.gate == nil then -- If the sequence holds no incoming gate command...
-			self:sendSimpleRow(x - 1, y - 1) -- Reflect this keystroke in the Monome LEDs
+		if self.seq[target].incoming.gate ~= nil then -- If the sequence is gated to a later tick...
+			self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
 		end
 			
-		self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
-		
 	end
 
 end
@@ -1226,15 +1238,13 @@ function Extrovert:parsePageButton(x, s)
 				cmdflag = true
 				-- Insert the active flags' corresponding commands into every sequence on the relevant page
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
-					table.insert(self.seq[i].incoming, v[1])
+					self.seq[i].incoming[v] = self.ctrlflags[v]
 				end
 				self:updateSeqPage(x) -- Reflect this change in the on-screen GUI
 			end
 		end
 
-		if (not cmdflag) -- If this is not being chorded with any command-buttons...
-		and (x ~= self.page) -- And the page-button being pressed is not for the active page...
-		then
+		if not cmdflag then -- If this is not being chorded with any command-buttons...
 		
 			self.page = x -- Tab to the selected page
 			
@@ -1257,12 +1267,12 @@ function Extrovert:parseCommandButton(x, s)
 	if s == 1 then -- On down-keystrokes...
 
 		if sendx == #self.flagnames then -- Special action for slowbuttons:
-			self.slowbutton = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
+			self.ctrlflags[self.flagnames[sendx]] = (x - sendx) + 2 -- Set the slow value to 2 or more, depending on which slow button is pressed
 		else
 			self.ctrlflags[self.flagnames[sendx]] = true -- Set the corresponding normal button var to true
 		end
 	
-	else
+	else -- On up-keystrokes...
 		self.ctrlflags[self.flagnames[sendx]] = false -- Set the corresponding button var to false
 		light = 0 -- The button will be darkened
 	end
@@ -1394,6 +1404,8 @@ function Extrovert:loadData()
 
 	self:makeCleanHistory() -- Reset undo history
 	
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 	self:updateEditorPanel()
 	
 	self:startTempo() -- Start the tempo system again, if applicable
@@ -1494,6 +1506,8 @@ function Extrovert:undo()
 		
 		self:normalizePointers()
 		
+		self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 		self:updateEditorPanel()
 	
 	else
@@ -1516,6 +1530,8 @@ function Extrovert:redo()
 		
 		self:normalizePointers()
 		
+		self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 		self:updateEditorPanel()
 	
 	else
@@ -1692,6 +1708,8 @@ function Extrovert:cutSequence()
 	
 	self:addStateToHistory(self.seq[self.key].tick, self.key)
 	
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 	self:updateControlTile("pointer")
 	self:updateMainEditorColumn()
 
@@ -1744,6 +1762,8 @@ function Extrovert:pasteSequence()
 	pd.post("Pasted " .. #self.copytab .. " ticks.")
 	pd.post("Ticks in sequence: " .. #self.seq[self.key].tick)
 	
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 	self:updateMainEditorColumn()
 	
 end
@@ -1763,6 +1783,8 @@ function Extrovert:addSpaceToSequence()
 	pd.post("Inserted " .. (self.gridx * self.quant * math.min(1, self.spacing)) .. " empty ticks")
 	
 	self:addStateToHistory(self.seq[self.key].tick, self.key)
+	
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
 	
 	self:updateMainEditorColumn()
 
@@ -1795,6 +1817,8 @@ function Extrovert:deleteSpaceFromSequence()
 		
 		self:addStateToHistory(self.seq[self.key].tick, self.key)
 
+		self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 		self:updateControlTile("pointer")
 		self:updateMainEditorColumn()
 
@@ -2005,6 +2029,8 @@ function Extrovert:moveSequence(spaces)
 	
 	self:addSeqsToHistory({oldkey, dest})
 
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 	self:updateControlTile("key")
 	self:updatePagePanel()
 	self:updateEditorPanel()
@@ -2386,7 +2412,24 @@ end
 
 
 
--- Reset a single sequence of IDI data to an empty, default state
+-- Find the longest sequence, and store its length
+function Extrovert:identifyLongestSequence()
+
+	local longest = 0
+
+	for _, v in pairs(self.seq) do
+		if #v.tick > longest then
+			longest = #v.tick
+		end
+	end
+	
+	self.longest = longest
+
+end
+
+
+
+-- Reset a single sequence of MIDI data to an empty, default state
 function Extrovert:resetSequence(i)
 
 	self.seq[i] = {}
@@ -2397,7 +2440,9 @@ function Extrovert:resetSequence(i)
 	self.seq[i].loop = false
 	self.seq[i].reverse = false
 	self.seq[i].stutter = false
+	
 	self.seq[i].slow = false
+	self.seq[i].slowtick = 0
 	
 	self.seq[i].incoming = {} -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
 	
@@ -2484,6 +2529,11 @@ function Extrovert:initialize(sel, atoms)
 	self.pointer = 1 -- Current active tick in the editor panel
 	self.notepointer = 1 -- Current active note within the active tick in the editor panel
 	
+	self.gatemulti = self.prefs.seq.gatemulti -- Multiplier for gating effects
+	self.totalgate = self.gatemulti * (self.gridx * 24) -- Holds the number of ticks inbetween gate-ticks
+	
+	self.longest = 1 -- Holds the size of the longest loaded sequence
+	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	
 	self.channel = 0 -- Current MIDI channel in the editor
@@ -2540,6 +2590,8 @@ function Extrovert:in_1_bang()
 	
 	self:resetAllSequences() -- Populate the self.seq table with default data
 	
+	self:identifyLongestSequence() -- Reflect sequence sizes in the self.longest variable
+	
 	self:makeCleanHistory() -- Put default values in the history table, so the undo/redo code doesn't wig out
 	
 	self:buildGUI()
@@ -2554,7 +2606,8 @@ function Extrovert:in_1_bang()
 	
 	self:startTempo()
 	
-	self:parsePageButton(1) -- Automatically toggle to the top page of sequences
+	self:parsePageButton(1, 1) -- Automatically toggle to the top page of sequences
+	self:parsePageButton(1, 0) -- Simulate the corresponding up-keystroke for the initial page-button
 
 end
 
@@ -2649,7 +2702,7 @@ function Extrovert:in_5(sel, m)
 			pd.send("extrovert-clock-out", "float", {248})
 		end
 
-		self.tick = (self.tick % 268435456) + 1
+		self.tick = (self.tick % self.longest) + 1
 		
 		self:iterateAllSequences()
 	
@@ -2661,7 +2714,7 @@ function Extrovert:in_5(sel, m)
 				self.tick = 1
 			else -- Accept regular clock ticks
 			
-				self.tick = (self.tick % 268435456) + 1
+				self.tick = (self.tick % self.longest) + 1
 				
 				self:iterateAllSequences()
 			

@@ -45,6 +45,12 @@ return {
 	
 	},
 	
+	seq = {
+	
+		gatemulti = 2, -- Multiplier for the gating constant, in the absence of any saved gate-data
+	
+	},
+	
 	midi = {
 	
 		clocktype = "master", -- MIDI CLOCK type ... "master" / "slave" / "thru" / "none" ... Both "master" and "none" will cause Extrovert to generate its own tempo.
