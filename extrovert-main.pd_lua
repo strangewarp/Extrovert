@@ -924,34 +924,31 @@ function Extrovert:parseIncomingFlags(s)
 	
 		self.seq[s].active = true
 		
-		local bpoint = ((flags.button - 1) * (#self.seq[s].tick / self.gridx)) + 1 -- Calculate the tick that corresponds to the incoming button-position
-		if flags.snap == true then -- Snap-flag overrides resume-flag, if both are true
-			self.seq[s].pointer = bpoint -- Snap to the first tick in a button's slice
-		else
-			if flags.resume == true then
-				self.seq[s].active = true -- Reactivate the sequence without changing the pointer
-			else
-				self.seq[s].pointer = bpoint + (self.seq[s].pointer % (#self.seq[s].tick / self.gridx)) -- Transpose the previous pointer position into the incoming button's slice
+		local chunksize = #self.seq[s].tick / self.gridx -- Calculate the size of each subsection
+		local bpoint = ((flags.button - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
+		
+		if flags.resume then -- If RESUME is true...
+			self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
+		else -- Else, change the pointer position to reflect the button-press position
+			self.seq[s].pointer = bpoint
+		end
+		
+		if flags.reverse then -- If REVERSE is true...
+		
+			self.seq[s].reverse = true -- Set the sequence's local reverse-flag
+			
+			if flags.activated -- If the sequence was just activated...
+			and flags.resume -- And the sequence isn't being resumed from a previous tick...
+			then -- Move the pointer to the end of the newly active subsection
+				self.seq[s].pointer = bpoint + (chunksize - (((bpoint - 1) % chunksize) + 1))
 			end
+			
+		else -- If REVERSE is false...
+			self.seq[s].reverse = false -- Set the sequence to play forward
 		end
 		
-		if flags.reverse == true then
-			self.seq[s].reverse = true
-		else
-			self.seq[s].reverse = false
-		end
-		
-		if flags.loop == true then
-			self.seq[s].loop = true
-		else
-			self.seq[s].loop = false
-		end
-		
-		if flags.stutter == true then
-			self.seq[s].stutter = true
-		else
-			self.seq[s].stutter = false
-		end
+		-- Move flags.loop.low and flags.loop.high into the sequence's local variables, where they will act as loop boundaries
+		self.seq[s].loop = flags.loop
 		
 		if flags.slow ~= nil then -- Slow is treated differently, because it contains either a numerical value or nil
 			self.seq[s].slowtick = 0
@@ -965,7 +962,7 @@ function Extrovert:parseIncomingFlags(s)
 	-- Empty the incoming table
 	self.seq[s].incoming = {}
 	
-	self:sendVisibleSeqRows() -- Send all visible Monome sequence rows
+	self:sendSeqRowIfVisible(s) -- Send all visible Monome sequence rows
 	
 	self:updateSeqButton(s) -- Update the sequence's on-screen GUI button
 
@@ -976,11 +973,11 @@ function Extrovert:iterateSequence(s)
 
 	if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 	
-		if self.seq[s].incoming.gate ~= nil then -- If the GATE command is incoming...
+		if self.seq[s].incoming.gate then -- If the GATE flag is true...
 			if (self.tick % self.totalgate) == 0 then -- On global ticks that correspond to the gate-tick amount...
 				self:parseIncomingFlags(s)
 			end
-		else
+		else -- If the GATE flag is false, process the flags on the soonest tick
 			self:parseIncomingFlags(s)
 		end
 		
@@ -1015,9 +1012,8 @@ function Extrovert:iterateSequence(s)
 		local newsub = math.ceil(self.gridx * (self.seq[s].pointer / #self.seq[s].tick))
 		local oldsub = math.ceil(self.gridx * (((((self.seq[s].pointer + oldoff) - 1) % #self.seq[s].tick) + 1) / #self.seq[s].tick))
 		if (newsub ~= oldsub) -- If the new subsection corresponds to a different button than the previous subsection...
-		and rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) -- And the sequence is upon a currently-visible page...
 		then
-			self:sendSimpleRow(newsub - 1, (s - 1) % (self.gridy - 2)) -- Send the sequence's Monome GUI row
+			self:sendSeqRowIfVisible(s) -- Send the sequence's Monome GUI row
 		end
 		
 	end
@@ -1052,6 +1048,21 @@ function Extrovert:iterateAllSequences()
 	for i = 1, (self.gridy - 2) * self.gridx do
 		self:iterateSequence(i)
 	end
+
+end
+
+-- Set a sequence's incoming control-flags, based on the active global control-flags
+function Extrovert:setIncomingFlags(s, button)
+
+	for k, v in pairs(self.ctrlflags) do
+		self.seq[s].incoming[k] = v
+		if not self.seq[s].active then -- If the sequence isn't already active...
+			self.seq[s].incoming.activated = true -- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
+		end
+	end
+	
+	-- Set the incoming button to the given subsection-button, or 1 if the button arg is nil
+	self.seq[s].incoming.button = button or 1
 
 end
 
@@ -1175,6 +1186,15 @@ function Extrovert:sendSeqRow(s)
 
 end
 
+-- Check whether a sequence-row would be visible, before sending its Monome button-data
+function Extrovert:sendSeqRowIfVisible(s)
+
+	if rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) then -- If the sequence is upon a currently-visible page...
+		self:sendSeqRow(s) -- Send the sequence's Monome GUI row
+	end
+
+end
+
 -- Send the Monome button-data for all visible sequence-rows
 function Extrovert:sendVisibleSeqRows()
 
@@ -1204,23 +1224,14 @@ function Extrovert:parseSeqButton(x, y, s)
 	
 		local target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
 		
-		-- Apply all active control-flags to the target sequence's "incoming" table
-		for _, v in pairs(self.flagnames) do
-			if self.ctrlflags[v] ~= false then
-				
-				-- Copy the global flag value into the sequence's incoming table. This will copy over any variable status from e.g. the "slow" button and whatnot.
-				self.seq[target].incoming[v] = self.ctrlflags[v]
-				
-			end
-		end
+		self:setIncomingFlags(target, x) -- Apply whatever control-flags are currently active to the sequence
 		
-		self.seq[target].incoming.active = true -- Flag that shows the sequence was just activated, and that it should therefore be treated slightly differently on its first tick
 		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
 		if self.seq[target].incoming.gate ~= nil then -- If the sequence is gated to a later tick...
 			self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
 		end
-			
+	
 	end
 
 end
@@ -1238,7 +1249,7 @@ function Extrovert:parsePageButton(x, s)
 				cmdflag = true
 				-- Insert the active flags' corresponding commands into every sequence on the relevant page
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
-					self.seq[i].incoming[v] = self.ctrlflags[v]
+					self:setIncomingFlags(i, 1) -- Apply whatever control-flags are currently active to the sequence
 				end
 				self:updateSeqPage(x) -- Reflect this change in the on-screen GUI
 			end
@@ -2437,9 +2448,12 @@ function Extrovert:resetSequence(i)
 	self.seq[i].pointer = 1
 	self.seq[i].active = false
 	
-	self.seq[i].loop = false
+	self.seq[i].loop = {
+		low = 1,
+		high = self.gridx,
+	}
+	
 	self.seq[i].reverse = false
-	self.seq[i].stutter = false
 	
 	self.seq[i].slow = false
 	self.seq[i].slowtick = 0
@@ -2675,7 +2689,11 @@ function Extrovert:in_3_list(t)
 	if y == (self.gridy - 1) then -- Parse page-row commands
 		self:parsePageButton(x, s)
 	elseif y == self.gridy then -- Parse control-row commands
-		self:parseCommandButton(x, s)
+		if x == self.gridx then
+			self:parseOverviewButton(s) -- Toggle Overview Mode
+		else
+			self:parseCommandButton(x, s) -- Toggle global command flags
+		end
 	else -- Parse sequence-button commands
 		self:parseSeqButton(x, y, s)
 	end

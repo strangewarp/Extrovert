@@ -605,12 +605,10 @@ return {
 	flagnames = {
 	
 		"off", -- Toggles whether a sequence should be turned off when pressed. If a page button is pressed instead, that page's sequences will all turn off.
-		"resume", -- Togles whether a sequence should be resumed from the previous active pointer position
 		"gate", -- Toggles whether a given performative command should be interpreted immediately, or on the next quantization-based timing gate.
-		"snap", -- Toggles whether to snap to the first tick in a given sub-segment, or continue from within that segment at a position comparable to the current pointer.
-		"reverse", -- Toggles whether the sequence will advance in reverse.
+		"resume", -- Togles whether a sequence's subsection should be resumed based on the previous active pointer position.
 		"loop", -- Toggles whether a sequence will merely loop a single button's worth of notes.
-		"stutter", -- Causes the previous note to stutter, at 24-tick increments.
+		"reverse", -- Toggles whether the sequence will advance in reverse.
 		
 		-- NOTE: The slow-flag must be last in the list, because it covers multiple buttons to the right of the others. 
 		"slow", -- Slows the rate at which a sequence's ticks progress. False when not in use, else holds slow value.
