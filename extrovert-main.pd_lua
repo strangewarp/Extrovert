@@ -922,10 +922,34 @@ function Extrovert:parseIncomingFlags(s)
 		
 	else
 	
-		self.seq[s].active = true
+		self.seq[s].active = true -- Flag the sequence as active
+		
+		if self.seq[s].incoming.range == nil then -- If the incoming range boundaries are unset, set them to the default values
+			self.seq[s].loop.low = 1
+			self.seq[s].loop.high = self.gridx
+		else
+			local r = self.seq[s].incoming.range
+			if #r == 1 then -- If there is only one range boundary, set it to both low and high
+				self.seq[s].loop.low = r[1]
+				self.seq[s].loop.high = r[1]
+			else -- Else, if there are 2 or more range points, set low and high to the two most-recently-entered ones
+				local low = r[#r - 1]
+				local high = r[#r]
+				if low > high then -- If low is greater than high, switch their values
+					low, high = high, low
+				end
+				self.seq[s].loop.low, self.seq[s].loop.high = low, high
+			end
+		end
+		
+		local modbutton = flags.button -- Set the temp pressed-button value to the incoming pressed-button
+		
+		if not rangeCheck(modbutton, self.seq[s].loop.low, self.seq[s].loop.high) then -- If modbutton is outside the loop boundaries...
+			modbutton = self.seq[s].loop.low -- Set modbutton to the low value
+		end
 		
 		local chunksize = #self.seq[s].tick / self.gridx -- Calculate the size of each subsection
-		local bpoint = ((flags.button - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
+		local bpoint = ((modbutton - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
 		
 		if flags.resume then -- If RESUME is true...
 			self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
@@ -946,9 +970,6 @@ function Extrovert:parseIncomingFlags(s)
 		else -- If REVERSE is false...
 			self.seq[s].reverse = false -- Set the sequence to play forward
 		end
-		
-		-- Move flags.loop.low and flags.loop.high into the sequence's local variables, where they will act as loop boundaries
-		self.seq[s].loop = flags.loop
 		
 		if flags.slow ~= nil then -- Slow is treated differently, because it contains either a numerical value or nil
 			self.seq[s].slowtick = 0
@@ -1055,15 +1076,18 @@ end
 function Extrovert:setIncomingFlags(s, button)
 
 	for k, v in pairs(self.ctrlflags) do
-		self.seq[s].incoming[k] = v
-		if not self.seq[s].active then -- If the sequence isn't already active...
-			self.seq[s].incoming.activated = true -- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
+		if k ~= "loop" then -- Treat all of these the same, except for LOOP flags
+			self.seq[s].incoming[k] = v
 		end
 	end
 	
-	-- Set the incoming button to the given subsection-button, or 1 if the button arg is nil
-	self.seq[s].incoming.button = button or 1
+	-- Set the incoming button to the given subsection-button
+	self.seq[s].incoming.button = button
 
+	if not self.seq[s].active then -- If the sequence isn't already active...
+		self.seq[s].incoming.activated = true -- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
+	end
+	
 end
 
 
@@ -1228,7 +1252,14 @@ function Extrovert:parseSeqButton(x, y, s)
 		
 		self.seq[target].incoming.button = x -- Set the incoming button-value
 		
-		if self.seq[target].incoming.gate ~= nil then -- If the sequence is gated to a later tick...
+		if self.seq[target].incoming.loop then -- If the LOOP command is active...
+			if self.seq[target].incoming.range == nil then -- If incoming.range is nil, build it
+				self.seq[target].incoming.range = {}
+			end
+			table.insert(self.seq[target].incoming.range, x) -- Insert the x value into the target sequence's range-button table
+		end
+		
+		if self.seq[target].incoming.gate then -- If the sequence is gated to a later tick...
 			self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
 		end
 	
