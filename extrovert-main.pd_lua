@@ -1210,7 +1210,7 @@ function Extrovert:sendSeqRow(s)
 
 end
 
--- Check whether a sequence-row would be visible, before sending its Monome button-data
+-- Check whether a single sequence-row would be visible, before sending its Monome button-data
 function Extrovert:sendSeqRowIfVisible(s)
 
 	if rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) then -- If the sequence is upon a currently-visible page...
@@ -1225,6 +1225,53 @@ function Extrovert:sendVisibleSeqRows()
 	for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
 		self:sendSeqRow(i)
 	end
+
+end
+
+-- Send a single LED button representing an entire sequence, for overview-mode
+function Extrovert:sendOverviewSeqLED(s)
+
+	sendLED( -- Send the LED information to the Monome apparatus...
+		(s - 1) % self.gridx, -- Discern X value
+		math.floor((s - 1) / self.gridx), -- Discern Y value
+		self.seq[s].active -- Grab activity value
+	)
+
+end
+
+-- Send all sequences to the Monome's buttons in overview mode
+function Extrovert:sendOverviewSeqButtons()
+
+	for i = 1, self.gridx * (self.gridy - 2) do
+		self:sendOverviewSeqLED(i)
+	end
+
+end
+
+-- Refresh a sequence's buttons, in different ways depending on the statusof self.overview
+function Extrovert:sendMetaSeqRow(s)
+
+	if self.overview then
+		self:sendOverviewSeqLED(s)
+	else
+		self:sendSeqRowIfVisible(s)
+	end
+
+end
+
+-- Refresh the sequence-buttons, in different ways depending on the status of self.overview
+function Extrovert:sendMetaGrid()
+
+	local s = 1 -- Change overview-button to on
+	
+	if self.overview then
+		self:sendOverviewSeqButtons()
+	else
+		s = 0 -- Change overview-button to off
+		self:sendVisibleSeqRows()
+	end
+	
+	self:sendLED(0, self.gridy - 1, s) -- Update the overview-button, to the left of the control-buttons
 
 end
 
@@ -1246,7 +1293,14 @@ function Extrovert:parseSeqButton(x, y, s)
 
 	if s == 1 then -- On down-keystrokes...
 	
-		local target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
+		local target = 1
+	
+		if self.overview then -- In overview mode...
+			target = ((y - 1) % (self.gridy - 2)) + ((x - 1) * self.gridx) -- Convert an overview button into its glide-reflected target value
+			x = 1 -- Set the x-value to the beginning of the sequence by default
+		else -- In beatslice-view mode...
+			target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
+		end
 		
 		self:setIncomingFlags(target, x) -- Apply whatever control-flags are currently active to the sequence
 		
@@ -1320,6 +1374,21 @@ function Extrovert:parseCommandButton(x, s)
 	end
 	
 	self:sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
+
+end
+
+-- Parse an overview-button command from the Monome
+function Extrovert:parseOverviewButton(s)
+
+	if s == 1 then
+	
+		self.overview = not self.overview
+		
+		self:sendOverviewButton()
+		
+		self:sendMetaGrid()
+	
+	end
 
 end
 
@@ -2591,6 +2660,8 @@ function Extrovert:initialize(sel, atoms)
 	self.quant = 24 -- Current quantization value (1 = tick, 3 = thirtysecond note, 6 = sixteenth note, 12 = eighth note, 24 = quarter note, 48 = half note, 96 = whole note, etc.)
 	
 	self.friendlyview = true -- Track friendly-note-view mode in the editor: true for friendly view; false for hacker view
+	
+	self.overview = false -- Tracks whether Overview Mode is toggled or not. Causes changes to the Monome display, and to keypress behaviors
 	
 	self.acceptpiano = true -- Track piano-note-accepting mode in the editor: true to record and play piano notes; false to play without recording
 	

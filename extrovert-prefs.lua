@@ -157,6 +157,10 @@ return {
 		RECORD = {
 			"Escape",
 		},
+		
+		MIDI_PANIC = {
+			"Space",
+		},
 	
 		LOAD = {
 			"Shift",
@@ -513,6 +517,8 @@ return {
 	cmdfunctions = {
 	
 		RECORD = { "togglePianoRecording" },
+		
+		MIDI_PANIC = { "haltAllSustains" },
 	
 		SAVE = { "saveData" },
 		LOAD = { "loadData" },
