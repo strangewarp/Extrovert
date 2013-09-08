@@ -864,6 +864,20 @@ end
 -- Parse an outgoing MIDI command, before actually sending it
 function Extrovert:noteParse(note)
 
+	if note[2] == 144 then -- If this is a NOTE-ON command, filter the note's contents through all applicable ADC values
+	
+		for k, v in ipairs(self.adc) do -- For all ADCs...
+			if v.channel == note[1] then -- If the ADC applies to this note's MIDI channel...
+				if v.target == "note" then -- If the target is NOTE, modify the NOTE value based on the dial's position
+					note[3] = math.max(0, math.min(127, note[3] + v.bottom + math.floor(v.breadth * self.dial[k])))
+				elseif v.target == "velocity" then -- If the target is VELOCITY, modify the VELOCITY value based on the dial's position
+					note[4] = math.max(0, math.min(127, note[4] + v.bottom + math.floor(v.breadth * self.dial[k])))
+				end
+			end
+		end
+	
+	end
+
 	if rangeCheck(note[2], 128, 159) then -- If this is a NOTE-ON or NOTE-OFF command, modify the contents of the MIDI-sustain table
 	
 		local sust = self.sustain[note[1]][note[3]] or -1 -- If the corresponding sustain value isn't nil, copy it to sust; else set sust to -1
@@ -983,7 +997,7 @@ function Extrovert:parseIncomingFlags(s)
 	-- Empty the incoming table
 	self.seq[s].incoming = {}
 	
-	self:sendSeqRowIfVisible(s) -- Send all visible Monome sequence rows
+	self:sendMetaSeqRow(s) -- Send Monome sequence rows through the meta apparatus
 	
 	self:updateSeqButton(s) -- Update the sequence's on-screen GUI button
 
@@ -1034,7 +1048,7 @@ function Extrovert:iterateSequence(s)
 		local oldsub = math.ceil(self.gridx * (((((self.seq[s].pointer + oldoff) - 1) % #self.seq[s].tick) + 1) / #self.seq[s].tick))
 		if (newsub ~= oldsub) -- If the new subsection corresponds to a different button than the previous subsection...
 		then
-			self:sendSeqRowIfVisible(s) -- Send the sequence's Monome GUI row
+			self:sendMetaSeqRow(s) -- Send Monome sequence rows through the meta apparatus
 		end
 		
 	end
@@ -1248,25 +1262,25 @@ function Extrovert:sendOverviewSeqButtons()
 
 end
 
--- Refresh a sequence's buttons, in different ways depending on the statusof self.overview
+-- Refresh a sequence's buttons, in different ways depending on self.overview
 function Extrovert:sendMetaSeqRow(s)
 
-	if self.overview then
+	if self.overview then -- Overview Mode...
 		self:sendOverviewSeqLED(s)
-	else
+	else -- Not Overview Mode...
 		self:sendSeqRowIfVisible(s)
 	end
 
 end
 
--- Refresh the sequence-buttons, in different ways depending on the status of self.overview
+-- Refresh the sequence-buttons, in different ways depending on self.overview
 function Extrovert:sendMetaGrid()
 
 	local s = 1 -- Change overview-button to on
 	
-	if self.overview then
+	if self.overview then -- Overview Mode...
 		self:sendOverviewSeqButtons()
-	else
+	else -- Not Overview Mode...
 		s = 0 -- Change overview-button to off
 		self:sendVisibleSeqRows()
 	end
@@ -1348,7 +1362,7 @@ function Extrovert:parsePageButton(x, s)
 			
 		end
 		
-		self:sendVisibleSeqRows()
+		self:sendMetaGrid() -- Send the sequence grid to the Monome, via the meta apparatus
 
 	end
 
@@ -2624,6 +2638,12 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.gridx = self.prefs.monome.width -- Monome X buttons
 	self.gridy = self.prefs.monome.height -- Monome Y buttons
+	
+	self.adc = self.prefs.monome.adc -- Table of all ADC preferences
+	self.dial = {} -- Holds live position data for all ADCs
+	for k, _ in pairs(self.adc) do
+		self.dial[k] = 0.5 -- Set default values for ADC dials
+	end
 	
 	self.history = {} -- Tracks all changes, for the undo/redo functions to act upon
 	self.undodepth = self.prefs.undo.depth -- Number of undo-steps the self.history table will hold.
