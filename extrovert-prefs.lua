@@ -548,7 +548,7 @@ return {
 	-- DO NOT CHANGE. Table of references and args that joins the command names to their corresponding functions.
 	cmdfunctions = {
 	
-		RECORD = { "toggleRecording" },
+		RECORD = { "togglePianoRecording" },
 		
 		MIDI_PANIC = { "haltAllSustains" },
 	
