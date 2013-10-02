@@ -1244,9 +1244,9 @@ end
 -- Send a single LED button representing an entire sequence, for overview-mode
 function Extrovert:sendOverviewSeqLED(s)
 
-	self:sendLED( -- Send the LED information to the Monome apparatus...
-		(s - 1) % self.gridx, -- Discern X value
-		math.floor((s - 1) / self.gridx), -- Discern Y value
+	self:sendLED( -- Send the LED information to the Monome apparatus... (Note: this translates keys into columns aligned with their corresponding page buttons)
+		math.floor((s - 1) / (self.gridy - 2)), -- Grab button's page value, translated into X
+		(s - 1) % (self.gridy - 2), -- Grab button's on-page position, translated to Y
 		(self.seq[s].active and 1) or 0 -- Grab activity value, translated from boolean to 0/1
 	)
 
