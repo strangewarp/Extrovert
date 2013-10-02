@@ -1313,24 +1313,25 @@ function Extrovert:parseSeqButton(x, y, s)
 
 	if s == 1 then -- On down-keystrokes...
 	
-		local target = 1
+		local target = 1 -- Target sequence
+		local section = 1 -- Section column is 1, by default
 	
 		if self.overview then -- In overview mode...
-			target = ((y - 1) % (self.gridy - 2)) + ((x - 1) * self.gridx) -- Convert an overview button into its glide-reflected target value
-			x = 1 -- Set the x-value to the beginning of the sequence by default
+			target = y + ((x - 1) * (self.gridy - 2)) -- Convert an overview button into its target sequence
 		else -- In beatslice-view mode...
 			target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
+			section = x -- Match the section-value to the column of the button that has been pressed
 		end
 		
-		self:setIncomingFlags(target, x) -- Apply whatever control-flags are currently active to the sequence
+		self:setIncomingFlags(target, section) -- Apply whatever control-flags are currently active to the sequence
 		
-		self.seq[target].incoming.button = x -- Set the incoming button-value
+		self.seq[target].incoming.button = section -- Set the incoming button-value
 		
 		if self.seq[target].incoming.loop then -- If the LOOP command is active...
 			if self.seq[target].incoming.range == nil then -- If incoming.range is nil, build it
 				self.seq[target].incoming.range = {}
 			end
-			table.insert(self.seq[target].incoming.range, x) -- Insert the x value into the target sequence's range-button table
+			table.insert(self.seq[target].incoming.range, section) -- Insert the x value into the target sequence's range-button table
 		end
 		
 		if self.seq[target].incoming.gate then -- If the sequence is gated to a later tick...
