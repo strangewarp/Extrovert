@@ -1244,10 +1244,10 @@ end
 -- Send a single LED button representing an entire sequence, for overview-mode
 function Extrovert:sendOverviewSeqLED(s)
 
-	sendLED( -- Send the LED information to the Monome apparatus...
+	self:sendLED( -- Send the LED information to the Monome apparatus...
 		(s - 1) % self.gridx, -- Discern X value
 		math.floor((s - 1) / self.gridx), -- Discern Y value
-		self.seq[s].active -- Grab activity value
+		(self.seq[s].active and 1) or 0 -- Grab activity value, translated from boolean to 0/1
 	)
 
 end
@@ -1258,6 +1258,13 @@ function Extrovert:sendOverviewSeqButtons()
 	for i = 1, self.gridx * (self.gridy - 2) do
 		self:sendOverviewSeqLED(i)
 	end
+
+end
+
+-- Send the Monome LED state for the overview-mode's control-button
+function Extrovert:sendOverviewButton()
+
+	self:sendLED(0, self.gridy - 1, (self.overview and 1) or 0)
 
 end
 
