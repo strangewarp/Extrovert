@@ -857,6 +857,14 @@ function Extrovert:noteSend(n)
 		
 		pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
+	elseif n[1] == -10 then -- Local TEMPO command
+	
+		self.bpm = n[3]
+	
+		self:propagateBPM() -- Propagate new tick speed
+	
+		self:updateControlTile("bpm") -- Update BPM tile in GUI
+	
 	end
 	
 end
@@ -1424,7 +1432,7 @@ function Extrovert:saveData()
 		local score = {
 			24, -- Ticks per beat (e.g. quarter note)
 			{
-				{"set_tempo", 0, 60000000 / self.bpm}, -- Microseconds per beat
+				{"set_tempo", 0, 60000000 / self.bpm}, -- Defaut tempo; microseconds per beat
 			},
 		}
 		
@@ -1433,7 +1441,9 @@ function Extrovert:saveData()
 			for num, v in ipairs(notes) do
 			
 				-- Convert Extrovert tabes into their MIDIlua counterparts
-				if v[2] == 144 then
+				if v[2] == -10 then -- Local BPM
+					table.insert(score[2], {"set_tempo", tick, 60000000 / v[3]})
+				elseif v[2] == 144 then
 					table.insert(score[2], {"note", tick, v[5], v[1], v[3], v[4]})
 				elseif v[2] == 160 then
 					table.insert(score[2], {"pitch_wheel_change", tick, v[1], v[3]})
@@ -1498,7 +1508,7 @@ function Extrovert:loadData()
 		for k, v in ipairs(tab[2]) do
 		
 			-- Convert various values into their Extrovert counterparts
-			if v[1] == "note" then
+			elseif v[1] == "note" then
 				table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
 			elseif v[1] == "channel_after_touch" then
 				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
@@ -1510,8 +1520,12 @@ function Extrovert:loadData()
 				table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
 			elseif v[1] == "pitch_wheel_change" then
 				table.insert(outtab[v[2]], {v[3], 224, v[4], 0, 0})
-			elseif v[1] == "set_tempo" then
-				self.bpm = 60000000 / v[3]
+			elseif v[1] == "set_tempo" then -- Grab tempo commands
+				if v[2] == 0 then -- Set global tempo
+					self.bpm = 60000000 / v[3]
+				else -- Insert local tempo command into sequence
+					table.insert(outtab[v[2]], {0, -10, 60000000 / v[3], 0, 0})
+				end
 			else
 				pd.post("Discarded unsupported command: " .. v[1])
 			end
@@ -1531,7 +1545,7 @@ function Extrovert:loadData()
 	
 	self:normalizePointers()
 	
-	self:propagateBPM()
+	self:propagateBPM() -- Propagate the new BPM value
 	
 	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 
@@ -2436,7 +2450,13 @@ function Extrovert:parsePianoNote(note)
 	if self.recording == true then -- Only record a piano-key command if piano-key recording is enabled
 	
 		if self.command == -20 then -- On Global BPM command: translate the note+velocity into the global BPM value
+		
 			self.bpm = note + self.velocity
+			
+			self:propagateBPM() -- Propagate new tick speed
+			
+			self:updateControlTile("bpm") -- Update BPM tile in GUI
+	
 		elseif self.command == -10 then -- On Local BPM command: translate the note+velocity into a local BPM value
 			table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note + self.velocity, 0, 0})
 		else -- Insert the note into the active tick of the active sequence
