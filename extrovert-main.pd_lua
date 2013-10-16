@@ -1481,6 +1481,8 @@ function Extrovert:loadData()
 
 	self:stopTempo() -- Stop the tempo system, if applicable
 
+	local tab = {}
+
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
 	for i = 1, (self.gridy - 2) * self.gridx do
 	
@@ -1488,9 +1490,12 @@ function Extrovert:loadData()
 		local fileloc = self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid"
 		pd.post("Now loading: " .. fileloc)
 		
+		-- Try to open the next MIDI file in the savefolder; if it doesn't exist, keep the previous file's table contents
 		local midifile = assert(io.open(fileloc, 'r'))
-		local tab = MIDI.midi2score(midifile:read('*all'))
-		midifile:close()
+		if midifile ~= nil then
+			tab = MIDI.midi2score(midifile:read('*all'))
+			midifile:close()
+		end
 		
 		local outtab = { {} }
 		local stats = MIDI.score2stats(tab)
@@ -1508,7 +1513,7 @@ function Extrovert:loadData()
 		for k, v in ipairs(tab[2]) do
 		
 			-- Convert various values into their Extrovert counterparts
-			elseif v[1] == "note" then
+			if v[1] == "note" then
 				table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
 			elseif v[1] == "channel_after_touch" then
 				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})

@@ -4,7 +4,7 @@ return {
 	
 		"default",
 		"test",
-		"default",
+		"rentest",
 		"default",
 		"default",
 
