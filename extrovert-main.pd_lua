@@ -815,49 +815,49 @@ end
 -- Send an outgoing MIDI command, via the Puredata MIDI apparatus
 function Extrovert:noteSend(n)
 
-	if n[1] == 128 then
+	if n[2] == 128 then
 	
-		pd.send("extrovert-midiout-note", "list", {n[1] + n[2], n[3], 0})
+		pd.send("extrovert-midiout-note", "list", {n[3], 0, n[1]})
 		
 		pd.post("NOTE-OFF: " .. n[1] + n[2] .. " " .. n[3] .. " 0") -- DEBUGGING
 	
-	elseif n[1] == 144 then
+	elseif n[2] == 144 then
 	
-		pd.send("extrovert-midiout-note", "list", {n[1] + n[2], n[3], n[4]})
+		pd.send("extrovert-midiout-note", "list", {n[3], n[4], n[1]})
 		
 		pd.post("NOTE-ON: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
-	elseif n[1] == 160 then
+	elseif n[2] == 160 then
 	
-		pd.send("extrovert-midiout-poly", "list", {n[1] + n[2], n[3], n[4]})
+		pd.send("extrovert-midiout-poly", "list", {n[3], n[4], n[1]})
 		
 		pd.post("POLY-TOUCH: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
-	elseif n[1] == 176 then
+	elseif n[2] == 176 then
 	
-		pd.send("extrovert-midiout-control", "list", {n[1] + n[2], n[3], n[4]})
+		pd.send("extrovert-midiout-control", "list", {n[3], n[4], n[1]})
 		
 		pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
-	elseif n[1] == 192 then
+	elseif n[2] == 192 then
 	
-		pd.send("extrovert-midiout-program", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-program", "list", {n[3], n[1]})
 		
 		pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
-	elseif n[1] == 208 then
+	elseif n[2] == 208 then
 	
-		pd.send("extrovert-midiout-press", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-press", "list", {n[3], n[1]})
 		
 		pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
-	elseif n[1] == 224 then
+	elseif n[2] == 224 then
 	
-		pd.send("extrovert-midiout-bend", "list", {n[1] + n[2], n[3]})
+		pd.send("extrovert-midiout-bend", "list", {n[3], n[1]})
 		
 		pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
-	elseif n[1] == -10 then -- Local TEMPO command
+	elseif n[2] == -10 then -- Local TEMPO command
 	
 		self.bpm = n[3]
 	
@@ -873,7 +873,7 @@ end
 function Extrovert:noteParse(note)
 
 	if note[2] == 144 then -- If this is a NOTE-ON command, filter the note's contents through all applicable ADC values
-	
+
 		for k, v in ipairs(self.adc) do -- For all ADCs...
 			if v.channel == note[1] then -- If the ADC applies to this note's MIDI channel...
 				if v.target == "note" then -- If the target is NOTE, modify the NOTE value based on the dial's position
@@ -890,7 +890,7 @@ function Extrovert:noteParse(note)
 	
 		local sust = self.sustain[note[1]][note[3]] or -1 -- If the corresponding sustain value isn't nil, copy it to sust; else set sust to -1
 	
-		if note[1] == 144 then -- For ON-commands, increase the note's global duration value by the incoming duration amount, if applicable
+		if note[2] == 144 then -- For ON-commands, increase the note's global duration value by the incoming duration amount, if applicable
 			sust = math.max(note[5], sust)
 		else -- For OFF-commands, set sust to -1, so that the corresponding sustain value is nilled out
 			sust = -1
@@ -924,7 +924,7 @@ end
 -- Send all notes within a given tick in a given sequence
 function Extrovert:sendTickNotes(s, t)
 
-	if self.seq[s].tick[t][1] ~= nil then
+	if next(self.seq[s].tick[t]) ~= nil then
 		for tick, note in ipairs(self.seq[s].tick[t]) do
 			self:noteParse(note)
 		end
@@ -956,17 +956,13 @@ end
 -- Convert flags in the "incoming" table into a sequence's internal states
 function Extrovert:parseIncomingFlags(s)
 
-	local flags = self.seq[s].incoming
-	
-	if flags.off == true then -- The off-flag overrides all other flags
+	if self.seq[s].incoming.off == true then -- The off-flag overrides all other flags
 	
 		self.seq[s].active = false
 		
 		-- If this sequence was the longest active one...
 		if #self.seq[s].tick == self.longest then
-		
 			self:findNewGlobalGate()
-			
 		end
 		
 	else
@@ -991,7 +987,7 @@ function Extrovert:parseIncomingFlags(s)
 			end
 		end
 		
-		local modbutton = flags.button -- Set the temp pressed-button value to the incoming pressed-button
+		local modbutton = self.seq[s].incoming.button -- Set the temp pressed-button value to the incoming pressed-button
 		
 		if not rangeCheck(modbutton, self.seq[s].loop.low, self.seq[s].loop.high) then -- If modbutton is outside the loop boundaries...
 			modbutton = self.seq[s].loop.low -- Set modbutton to the low value
@@ -1001,7 +997,7 @@ function Extrovert:parseIncomingFlags(s)
 		local bpoint = ((modbutton - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
 		local seqticks = chunksize * (self.seq[s].loop.low + self.seq[s].loop.high) -- Get the sequence's loop size
 		
-		if flags.resume then -- If RESUME is true...
+		if self.seq[s].incoming.resume then -- If RESUME is true...
 			self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
 		else -- Else, change the pointer position to reflect the button-press position
 			self.seq[s].pointer = bpoint
@@ -1044,13 +1040,29 @@ function Extrovert:iterateSequence(s)
 
 	if self.seq[s].active then -- If the sequence is active...
 	
-		-- Increment the pointer and send tick-notes on every global tick
-		self.seq[s].pointer = (self.seq[s].pointer % #self.seq[s].tick) + 1
-		self:sendTickNotes(s, self.seq[s].pointer)
-	
-		-- Update the sequence's Monome LEDs, if applicable
+		-- Get subsection size
+		local subsize = #self.seq[s].tick / self.gridx
+
+		-- Get current subsection, and previous subsection
 		local newsub = math.ceil(self.gridx * (self.seq[s].pointer / #self.seq[s].tick))
 		local oldsub = math.ceil(self.gridx * ((((self.seq[s].pointer - 2) % #self.seq[s].tick) + 1) / #self.seq[s].tick))
+
+		-- Bound newsub and oldsub to subsections within the sequence's loop
+		if newsub > self.seq[s].loop.high then
+			newsub = self.seq[s].loop.low
+		end
+		if oldsub < self.seq[s].loop.low then
+			oldsub = self.seq[s].loop.high
+		end
+
+		-- Increment the pointer within loop boundaries, and then send tick-notes, on every global tick
+		local oldpoint = self.seq[s].pointer
+		self.seq[s].pointer = (self.seq[s].pointer % (self.seq[s].loop.high * subsize)) + 1
+		if self.seq[s].pointer < oldpoint then
+			self.seq[s].pointer = ((self.seq[s].loop.low - 1) * subsize) + 1
+		end
+		self:sendTickNotes(s, self.seq[s].pointer)
+	
 		if newsub ~= oldsub then -- If the new subsection corresponds to a different button than the previous subsection...
 			self:sendMetaSeqRow(s) -- Send Monome sequence rows through the meta apparatus
 		end
@@ -1096,10 +1108,16 @@ end
 -- Set a sequence's incoming control-flags, based on the active global control-flags
 function Extrovert:setIncomingFlags(s, button)
 
+	-- Put all control-flag states into the sequence's incoming-commands table
 	for k, v in pairs(self.ctrlflags) do
-		if k ~= "loop" then -- Treat all of these the same, except for LOOP flags
-			self.seq[s].incoming[k] = v
+		self.seq[s].incoming[k] = v
+	end
+	
+	if self.ctrlflags.loop then -- If the LOOP command is active...
+		if self.seq[s].incoming.range == nil then -- If incoming.range is nil, build it
+			self.seq[s].incoming.range = {}
 		end
+		table.insert(self.seq[s].incoming.range, button) -- Insert the x value into the target sequence's range-button table
 	end
 	
 	-- Set the incoming button to the given subsection-button
@@ -1333,15 +1351,6 @@ function Extrovert:parseSeqButton(x, y, s)
 		
 		self:setIncomingFlags(target, section) -- Apply whatever control-flags are currently active to the sequence
 		
-		self.seq[target].incoming.button = section -- Set the incoming button-value
-		
-		if self.seq[target].incoming.loop then -- If the LOOP command is active...
-			if self.seq[target].incoming.range == nil then -- If incoming.range is nil, build it
-				self.seq[target].incoming.range = {}
-			end
-			table.insert(self.seq[target].incoming.range, section) -- Insert the x value into the target sequence's range-button table
-		end
-		
 		if self.seq[target].incoming.gate then -- If the sequence is gated to a later tick...
 			self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
 		end
@@ -1359,7 +1368,7 @@ function Extrovert:parsePageButton(x, s)
 		
 		-- Check all control-row flags
 		for _, v in pairs(self.ctrlflags) do
-			if v ~= false then
+			if v then
 				cmdflag = true
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do -- For every sequence on the relevant page...
 					self:setIncomingFlags(i, 1) -- Apply whatever control-flags are currently active to the sequence
