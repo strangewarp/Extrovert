@@ -354,7 +354,7 @@ function Extrovert:updateSeqButton(k)
 	local outname = "extrovert-seq-" .. k
 	local outcolor = self.color[9][1]
 	
-	if self.seq[k].active == true then
+	if self.seq[k].active then
 		if next(self.seq[k].incoming) ~= nil then -- If the sequence is active AND has incoming commands, change to an active-and-pending-color
 			outcolor = self.color[8][3]
 		else -- If the sequence is active AND has no incoming commands, change to an active-color
@@ -444,7 +444,7 @@ function Extrovert:updateEditorItem(x, y, tick, notekey, chan, cmd, note, velo, 
 	end
 	
 	-- If friendly-note-view is enabled, make certain data values more human-readable
-	if self.friendlyview == true then
+	if self.friendlyview then
 	
 		if (type(note) == "number")
 		and rangeCheck(cmd, 128, 159)
@@ -956,7 +956,7 @@ end
 -- Convert flags in the "incoming" table into a sequence's internal states
 function Extrovert:parseIncomingFlags(s)
 
-	if self.seq[s].incoming.off == true then -- The off-flag overrides all other flags
+	if self.seq[s].incoming.off then -- The off-flag overrides all other flags
 	
 		self.seq[s].active = false
 		
@@ -1409,7 +1409,7 @@ function Extrovert:parseCommandButton(x, s)
 	elseif x == 4 then -- Parse LOOP button
 		self.ctrlflags.loop = flagbool
 	elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
-		self.ctrlflags.gate = flagbool and math.ceil(self.gridx / math.min(1, (2 ^ (x - 5)))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
+		self.ctrlflags.gate = flagbool and math.ceil(self.gridx / math.max(1, (2 ^ (x - 5)))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
 	end
 
 	self:sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
@@ -2461,7 +2461,7 @@ function Extrovert:parsePianoNote(note)
 	-- Send an example note, regardless of whether notes are being recorded
 	pd.send("extrovert-examplenote", "list", {note, self.velocity, self.channel})
 	
-	if self.recording == true then -- Only record a piano-key command if piano-key recording is enabled
+	if self.recording then -- Only record a piano-key command if piano-key recording is enabled
 	
 		if self.command == -20 then -- On Global BPM command: translate the note+velocity into the global BPM value
 		
