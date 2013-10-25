@@ -960,8 +960,8 @@ function Extrovert:parseIncomingFlags(s)
 	
 		self.seq[s].active = false
 		
-		-- If this sequence was the longest active one...
-		if #self.seq[s].tick == self.longest then
+		-- If this sequence's loop was the longest active one...
+		if ((self.seq[s].pointer - math.max(1, (#self.seq[s].tick / self.gridx) * (self.seq[s].loop.low - 1))) + 1) == self.longest then
 			self:findNewGlobalGate()
 		end
 		
@@ -995,7 +995,7 @@ function Extrovert:parseIncomingFlags(s)
 		
 		local chunksize = #self.seq[s].tick / self.gridx -- Calculate the size of each subsection
 		local bpoint = ((modbutton - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
-		local seqticks = chunksize * (self.seq[s].loop.low + self.seq[s].loop.high) -- Get the sequence's loop size
+		local seqticks = chunksize * ((self.seq[s].loop.high - self.seq[s].loop.low) + 1) -- Get the sequence's loop size
 		
 		if self.seq[s].incoming.resume then -- If RESUME is true...
 			self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
@@ -1029,7 +1029,7 @@ function Extrovert:iterateSequence(s)
 	if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 	
 		if self.seq[s].incoming.gate then -- If the GATE flag is true...
-			if ((self.tick - 1) % ((self.longest / self.gridx) * self.seq[s].incoming.gate)) == 0 then -- On global ticks that correspond to the gate-tick amount...
+			if ((self.tick - 1) % math.floor(self.longest / self.seq[s].incoming.gate)) == 0 then -- On global ticks that correspond to the gate-tick amount...
 				self:parseIncomingFlags(s)
 			end
 		else -- If the GATE flag is false, process the flags on the soonest tick
@@ -1409,7 +1409,7 @@ function Extrovert:parseCommandButton(x, s)
 	elseif x == 4 then -- Parse LOOP button
 		self.ctrlflags.loop = flagbool
 	elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
-		self.ctrlflags.gate = flagbool and math.ceil(self.gridx / math.max(1, (2 ^ (x - 5)))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
+		self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, (2 ^ (x - 5)))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
 	end
 
 	self:sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
