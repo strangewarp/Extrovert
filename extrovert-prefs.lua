@@ -146,6 +146,8 @@ return {
 			
 				{3, 2, "acceptpiano", "Piano", "extrovert-piano-button"},
 				{2, 1, "bpm", "BPM", "extrovert-bpm-button"},
+				{2, 1, "tpq", "TPQ", "extrovert-tpq-button"},
+				{2, 1, "tempo.report", "Tempo", "extrovert-tempo-button"},
 				{2, 1, "clocktype", "CLOCK", "extrovert-clock-button"},
 				{3, 1, "key", "Seq", "extrovert-sequence-button"},
 				{3, 3, "pointer", "Tick", "extrovert-tick-button"},
@@ -334,6 +336,26 @@ return {
 			"Shift",
 			"Tab",
 			"Right",
+		},
+
+		TEMPO_NUMERATOR_INC = {
+			"Shift",
+			"J",
+		},
+		
+		TEMPO_NUMERATOR_DEC = {
+			"Shift",
+			"H",
+		},
+		
+		TEMPO_DENOMINATOR_INC = {
+			"Shift",
+			"L",
+		},
+		
+		TEMPO_DENOMINATOR_DEC = {
+			"Shift",
+			"K",
 		},
 		
 		SPACING_INC = {
@@ -589,6 +611,11 @@ return {
 		SPACE_INSERT = { "addSpaceToSequence" },
 		SPACE_DELETE = { "deleteSpaceFromSequence" },
 		
+		TEMPO_NUMERATOR_DEC = { "shiftTempo", -1, 0 },
+		TEMPO_NUMERATOR_INC = { "shiftTempo", 1, 0 },
+		TEMPO_DENOMINATOR_DEC = { "shiftTempo", 0, -1 },
+		TEMPO_DENOMINATOR_INC = { "shiftTempo", 0, 1 },
+		
 		SPACING_DEC = { "shiftSpacing", -1 },
 		SPACING_INC = { "shiftSpacing", 1 },
 		
@@ -643,9 +670,9 @@ return {
 	cmdnames = {
 	
 		{ "GBPM", -20 }, -- Global BPM
+		{ "GTPQ", -19 }, -- Global TPQ
 		{ "LBPM", -10 }, -- Local BPM
-		{ "OFF", 128 }, -- MIDI NOTE-OFF
-		{ "ON", 144 }, -- MIDI NOTE-ON
+		{ "Note", 144 }, -- MIDI NOTE-ON. Due to Extrovert's use of note-durations, there is no NOTE-OFF command.
 		{ "Poly", 160 }, -- MIDI poly-key pressure
 		{ "Ctrl", 176 }, -- MIDI control change
 		{ "Prog", 192 }, -- MIDI program change

@@ -1158,7 +1158,7 @@ end
 -- Propagate a beats-per-minute value to the Puredata tempo apparatus
 function Extrovert:propagateBPM()
 
-	local ms = 60000 / (self.bpm * 24) -- Convert BPM into milliseconds
+	local ms = 60000 / ((self.bpm * self.tpq) * self.tempo.p) -- Convert BPM, TPQ, and tempo into milliseconds
 	
 	pd.send("extrovert-metro-speed", "float", {ms})
 
@@ -1438,39 +1438,53 @@ function Extrovert:saveData()
 
 	for i = 1, (self.gridy - 2) * self.gridx do
 	
-		local score = {
-			24, -- Ticks per beat (e.g. quarter note)
-			{
+		local score = {}
+		local tempochanges = {}
+		
+		for chan = 1, 16 do
+
+			score[chan] = {
 				{"set_tempo", 0, 60000000 / self.bpm}, -- Defaut tempo; microseconds per beat
-			},
-		}
-		
-		for tick, notes in ipairs(self.seq[i].tick) do
-		
-			for num, v in ipairs(notes) do
+				{"time_signature", 0, self.tempo.n, self.tempo.d, self.tpq, 8} -- Time signature: numerator, denominator, ticks per 1/4, 32nds per 1/4
+			}
+
+			for tick, notes in ipairs(self.seq[i].tick) do
 			
-				-- Convert Extrovert tabes into their MIDIlua counterparts
-				if v[2] == -10 then -- Local BPM
-					table.insert(score[2], {"set_tempo", tick, 60000000 / v[3]})
-				elseif v[2] == 144 then
-					table.insert(score[2], {"note", tick, v[5], v[1], v[3], v[4]})
-				elseif v[2] == 160 then
-					table.insert(score[2], {"pitch_wheel_change", tick, v[1], v[3]})
-				elseif v[2] == 176 then
-					table.insert(score[2], {"control_change", tick, v[1], v[3], v[4]})
-				elseif v[2] == 192 then
-					table.insert(score[2], {"patch_change", tick, v[1], v[3]})
-				elseif v[2] == 208 then
-					table.insert(score[2], {"key_after_touch", tick, v[1], v[3], v[4]})
-				elseif v[2] == 224 then
-					table.insert(score[2], {"pitch_wheel_change", tick, v[1], v[3]})
+				for num, v in ipairs(notes) do
+				
+					-- Convert Extrovert tabes into their MIDIlua counterparts
+					if v[2] == -10 then -- Collect all tempo changes, to insert them into every table after the tables are constructed
+						table.insert(tempochanges, {"set_tempo", tick - 1, 60000000 / v[3]})
+					elseif v[2] == 144 then
+						table.insert(score[chan], {"note", tick - 1, v[5], v[1], v[3], v[4]})
+					elseif v[2] == 160 then
+						table.insert(score[chan], {"pitch_wheel_change", tick - 1, v[1], v[3]})
+					elseif v[2] == 176 then
+						table.insert(score[chan], {"control_change", tick - 1, v[1], v[3], v[4]})
+					elseif v[2] == 192 then
+						table.insert(score[chan], {"patch_change", tick - 1, v[1], v[3]})
+					elseif v[2] == 208 then
+						table.insert(score[chan], {"key_after_touch", tick - 1, v[1], v[3], v[4]})
+					elseif v[2] == 224 then
+						table.insert(score[chan], {"pitch_wheel_change", tick - 1, v[1], v[3]})
+					end
+					
 				end
 				
 			end
+
+			table.insert(score[chan], {"end_track", #self.seq[i].tick - 1}) -- Insert an end-point into the track, so that trailing empty ticks aren't clipped
 			
 		end
-		
-		table.insert(score[2], {"end_track", #self.seq[i].tick}) -- Insert an end-point into the track, so that trailing empty ticks aren't clipped
+
+		-- Insert all previously-collected tempo-change commands into all channels of the MIDI score
+		for chan = 1, 16 do
+			for k, v in pairs(tempochanges) do
+				table.insert(score[chan], v)
+			end
+		end
+
+		table.insert(score, 1, self.tpq) -- Insert ticks-per-quarter-note value
 		
 		-- Save the table into a MIDI file within the savefolder, using MIDI.lua functions
 		local midifile = assert(io.open(self.savepath .. self.hotseats[self.activeseat] .. "/" .. i .. ".mid", 'w'))
@@ -1491,6 +1505,7 @@ function Extrovert:loadData()
 	self:stopTempo() -- Stop the tempo system, if applicable
 
 	local tab = {}
+	local bpm, tpq, numerator, denominator = false, false, false, false
 
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
 	for i = 1, (self.gridy - 2) * self.gridx do
@@ -1502,48 +1517,60 @@ function Extrovert:loadData()
 		-- Try to open the next MIDI file in the savefolder; if it doesn't exist, keep the previous file's table contents
 		local midifile = assert(io.open(fileloc, 'r'))
 		if midifile ~= nil then
+
 			tab = MIDI.midi2score(midifile:read('*all'))
 			midifile:close()
-		end
-		
-		local outtab = { {} }
-		local stats = MIDI.score2stats(tab)
-		local tpq = tab[1]
-		if tpq ~= 24 then
-			tpq = 24
-			pd.post("Ticks Per Beat was not 24! Reformatted it to 24. This will affect playback speed.")
+
+			local stats = MIDI.score2stats(tab)
+
+			if not tpq then
+				tpq = table.remove(tab, 1)
+			else
+				table.remove(tab, 1)
+			end
+
 		end
 		
 		-- Insert items into the output table until it matches the number of ticks in the MIDIlua score
+		local outtab = { {} }
 		while #outtab < stats.nticks do
 			table.insert(outtab, {})
 		end
 		
-		for k, v in ipairs(tab[2]) do
-		
-			-- Convert various values into their Extrovert counterparts
-			if v[1] == "note" then
-				table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
-			elseif v[1] == "channel_after_touch" then
-				table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
-			elseif v[1] == "control_change" then
-				table.insert(outtab[v[2]], {v[3], 176, v[4], v[5], 0})
-			elseif v[1] == "patch_change" then
-				table.insert(outtab[v[2]], {v[3], 192, v[4], 0, 0})
-			elseif v[1] == "key_after_touch" then
-				table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
-			elseif v[1] == "pitch_wheel_change" then
-				table.insert(outtab[v[2]], {v[3], 224, v[4], 0, 0})
-			elseif v[1] == "set_tempo" then -- Grab tempo commands
-				if v[2] == 0 then -- Set global tempo
-					self.bpm = 60000000 / v[3]
-				else -- Insert local tempo command into sequence
-					table.insert(outtab[v[2]], {0, -10, 60000000 / v[3], 0, 0})
-				end
-			else
-				pd.post("Discarded unsupported command: " .. v[1])
-			end
+		for tracknum, track in ipairs(tab) do -- Read every track in the MIDI file's score table
+
+			for k, v in ipairs(track) do -- Read every command in a track's sub-table
 			
+				-- Convert various values into their Extrovert counterparts
+				if v[1] == "note" then
+					table.insert(outtab[v[2] + 1], {v[4], 144, v[5], v[6], v[3]})
+				elseif v[1] == "channel_after_touch" then
+					table.insert(outtab[v[2] + 1], {v[3], 160, v[4], 0, 0})
+				elseif v[1] == "control_change" then
+					table.insert(outtab[v[2] + 1], {v[3], 176, v[4], v[5], 0})
+				elseif v[1] == "patch_change" then
+					table.insert(outtab[v[2] + 1], {v[3], 192, v[4], 0, 0})
+				elseif v[1] == "key_after_touch" then
+					table.insert(outtab[v[2] + 1], {v[3], 208, v[4], v[5], 0})
+				elseif v[1] == "pitch_wheel_change" then
+					table.insert(outtab[v[2] + 1], {v[3], 224, v[4], 0, 0})
+				elseif v[1] == "set_tempo" then -- Grab tempo commands
+					if v[2] == 0 then -- Set global tempo
+						bpm = bpm or (60000000 / v[3])
+					else -- Insert local tempo command into sequence
+						table.insert(outtab[v[2]], {0, -10, 60000000 / v[3], 0, 0})
+					end
+				elseif v[1] == "time_signature" then
+					numerator = numerator or v[3]
+					denominator = denominator or v[4]
+				else
+					pd.post("Discarded unsupported command: " .. v[1])
+				end
+				
+			end
+
+			pd.post("Sequence " .. i .. ": loaded track " .. tracknum .. ": " .. #track .. " commands")
+
 		end
 		
 		-- Insert padding ticks at the end of the sequence, so it fits the Monome-width without the potential for buton-based rounding errors
@@ -1556,13 +1583,24 @@ function Extrovert:loadData()
 		pd.post("Loaded sequence " .. i .. ": " .. #outtab .. " ticks")
 		
 	end
+
+	-- Set BPM, TPQ, and TEMPO to their respective first captured values, or defaults if no values were captured
+	self.bpm = bpm or 120
+	self.tpq = tpq or 24
+	self.tempo.n = numerator or 4
+	self.tempo.d = denominator or 4
+	self.tempo.p = self.tempo.n / self.tempo.d
+	self.tempo.report = self.tempo.n .. "/" .. self.tempo.d
 	
+	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
+	pd.post("Beats Per Minute:" .. self.bpm)
+	pd.post("Ticks Per Beat:" .. self.tpq)
+	pd.post("Tempo:" .. self.tempo.n .. "/" .. self.tempo.d)
+
 	self:normalizePointers()
 	
 	self:propagateBPM() -- Propagate the new BPM value
 	
-	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
-
 	self:makeCleanHistory() -- Reset undo history
 	
 	self:updateEditorPanel()
@@ -2189,6 +2227,19 @@ function Extrovert:moveSequenceAcross(spaces)
 
 end
 
+-- Shift the tempo numerator/denominator by a given amount
+function Extrovert:shiftTempo(numdist, denomdist)
+
+	self.tempo.n = math.max(1, self.tempo.n + numdist)
+	self.tempo.d = math.max(1, self.tempo.d + denomdist)
+	self.tempo.p = self.tempo.n / self.tempo.d
+	self.tempo.report = self.tempo.n .. "/" .. self.tempo.d
+
+	self:updateControlTile("tempo.report")
+	self:updateEditorPanel()
+
+end
+
 -- Shift self.spacing by a given amount
 function Extrovert:shiftSpacing(dist)
 
@@ -2203,22 +2254,29 @@ end
 -- Shift self.quant by a given amount
 function Extrovert:shiftQuant(dist)
 
-	if dist < 0 then
-		dist = 1 / (math.abs(dist) + 1)
-	else
-		dist = dist + 1
+	-- Convert negative/positive distances to divisions or multiplications of the current quant value
+	local multiplier = ((dist < 0) and (1 / (math.abs(dist) + 1))) or (2 ^ dist)
+	local rawnew = self.quant * multiplier
+
+	if self.quant == 1 then -- If the old quantization was a single tick...
+		if rawnew == 2 then -- If quantization is being increased, then find the smallest non-1 divisor of TPQ, and set it to quantization
+			local findval = self.tpq
+			while (findval == math.floor(findval))
+			and (findval ~= 1)
+			do
+				findval = findval / 2
+			end
+			self.quant = findval
+		else -- Ignore attempts to decrease quantization below 1
+			pd.post("Cannot decrease quantization to values lower than 1!")
+		end
+	elseif rawnew == math.floor(rawnew) then -- If the new quantization value is valid, set it
+		self.quant = rawnew
+	else -- If an odd number was divided, reduce the quantization to a single tick
+		self.quant = 1
 	end
 
-	if (self.quant * dist) >= 3 then
-		self.quant = self.quant * dist
-	elseif (self.quant * dist) == 1.5 then
-		self.quant = 1
-	elseif (self.quant * dist) >= 2 then
-		self.quant = 3
-		self.quant = self.quant * (dist - 1)
-	end
-	
-	pd.post("Quantization: " .. self.quant .. " (" .. math.max(1, self.quant / 96) .. "/" .. math.max(1, 96 / self.quant) .. " note)")
+	pd.post("Editor Quantization: " .. self.quant .. " (" .. math.max(1, self.quant / (self.tpq * 4)) .. "/" .. math.max(1, (self.tpq * 4) / self.quant) .. " note)")
 	
 	self:updateControlTile("quant")
 	self:updateEditorPanel()
@@ -2470,6 +2528,17 @@ function Extrovert:parsePianoNote(note)
 			self:propagateBPM() -- Propagate new tick speed
 			
 			self:updateControlTile("bpm") -- Update BPM tile in GUI
+
+		elseif self.command == -19 then -- On global TPQ command: translate the note+velocity into the global TPQ value
+
+			self.tpq = (note + self.velocity) * math.max(1, self.spacing)
+			self.quant = self.tpq
+
+			self:propagateBPM() -- Propagate new tick speed
+
+			self:updateControlTile("tpq")
+			self:updateControlTile("quant")
+			self:updateEditorPanel()
 	
 		elseif self.command == -10 then -- On Local BPM command: translate the note+velocity into a local BPM value
 			table.insert(self.seq[self.key].tick[self.pointer], self.notepointer, {self.channel, self.command, note + self.velocity, 0, 0})
@@ -2581,7 +2650,7 @@ function Extrovert:resetSequence(i)
 	self.seq[i].incoming = {} -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
 	
 	self.seq[i].tick = {}
-	for t = 1, self.gridx * 24 do -- Insert dummy ticks
+	for t = 1, self.gridx do -- Insert dummy ticks
 		self.seq[i].tick[t] = {}
 	end
 	
@@ -2674,6 +2743,13 @@ function Extrovert:initialize(sel, atoms)
 	self.longest = self.gatedefault -- Holds the number of ticks inbetween gates; varies depending on which sequences are active
 	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
+	self.tpq = 24 -- Ticks per quarter note
+	self.tempo = { -- Time signature
+		n = 4, -- Numerator
+		d = 4, -- Denominator
+		p = 1, -- Product
+		report = "4/4", -- GUI-friendly time signature string
+	}
 	
 	self.channel = 0 -- Current MIDI channel in the editor
 	self.command = 144 -- Current command type in the editor
@@ -2681,8 +2757,8 @@ function Extrovert:initialize(sel, atoms)
 	self.velocity = 127 -- Current velocity in the editor
 	self.duration = 24 -- Current duration in the editor
 	
-	self.spacing = 12 -- Spacing between notes, in ticks, when notes are entered
-	self.quant = 24 -- Current quantization value (1 = tick, 3 = thirtysecond note, 6 = sixteenth note, 12 = eighth note, 24 = quarter note, 48 = half note, 96 = whole note, etc.)
+	self.spacing = 24 -- Spacing between notes, in ticks, when notes are entered
+	self.quant = 1 -- Current quantization value (expressed as tpq*quant)
 	
 	self.friendlyview = true -- Track friendly-note-view mode in the editor: true for friendly view; false for hacker view
 	
