@@ -1158,7 +1158,7 @@ end
 -- Propagate a beats-per-minute value to the Puredata tempo apparatus
 function Extrovert:propagateBPM()
 
-	local ms = 60000 / ((self.bpm * self.tpq) * self.tempo.p) -- Convert BPM, TPQ, and tempo into milliseconds
+	local ms = 60000 / (self.bpm * self.tpq) -- Convert BPM and TPQ into milliseconds
 	
 	pd.send("extrovert-metro-speed", "float", {ms})
 
@@ -1443,7 +1443,7 @@ function Extrovert:saveData()
 
 			score[chan] = {
 				{"set_tempo", 0, 60000000 / self.bpm}, -- Defaut tempo; microseconds per beat
-				{"time_signature", 0, self.tempo.n, self.tempo.d, self.tpq, 8} -- Time signature: numerator, denominator, ticks per 1/4, 32nds per 1/4
+				{"time_signature", 0, 4, 4, self.tpq, 8} -- Time signature: numerator, denominator, ticks per 1/4, 32nds per 1/4
 			}
 
 			for tick, notes in ipairs(self.seq[i].tick) do
@@ -1503,7 +1503,7 @@ function Extrovert:loadData()
 	self:stopTempo() -- Stop the tempo system, if applicable
 
 	local tab, stats = {}, {}
-	local bpm, tpq, numerator, denominator = false, false, false, false
+	local bpm, tpq = false, false
 
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
 	for i = 1, (self.gridy - 2) * self.gridx do
@@ -1558,9 +1558,6 @@ function Extrovert:loadData()
 					else -- Insert local tempo command into sequence
 						table.insert(outtab[v[2]], {0, -10, 60000000 / v[3], 0, 0})
 					end
-				elseif v[1] == "time_signature" then
-					numerator = numerator or v[3]
-					denominator = denominator or v[4]
 				else
 					pd.post("Discarded unsupported command: " .. v[1])
 				end
@@ -1582,18 +1579,13 @@ function Extrovert:loadData()
 		
 	end
 
-	-- Set BPM, TPQ, and TEMPO to their respective first captured values, or defaults if no values were captured
+	-- Set BPM and TPQ to their respective first captured values, or defaults if no values were captured
 	self.bpm = bpm or 120
 	self.tpq = tpq or 24
-	self.tempo.n = numerator or 4
-	self.tempo.d = denominator or 4
-	self.tempo.p = self.tempo.n / self.tempo.d
-	self.tempostring = self.tempo.n .. "/" .. self.tempo.d
 	
 	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 	pd.post("Beats Per Minute:" .. self.bpm)
 	pd.post("Ticks Per Beat:" .. self.tpq)
-	pd.post("Tempo:" .. self.tempo.n .. "/" .. self.tempo.d)
 
 	self:normalizePointers()
 	
@@ -2225,19 +2217,6 @@ function Extrovert:moveSequenceAcross(spaces)
 
 end
 
--- Shift the tempo numerator/denominator by a given amount
-function Extrovert:shiftTempo(numdist, denomdist)
-
-	self.tempo.n = math.max(1, self.tempo.n + numdist)
-	self.tempo.d = math.max(1, self.tempo.d + denomdist)
-	self.tempo.p = self.tempo.n / self.tempo.d
-	self.tempostring = self.tempo.n .. "/" .. self.tempo.d
-
-	self:updateControlTile("tempostring")
-	self:updateEditorPanel()
-
-end
-
 -- Shift self.spacing by a given amount
 function Extrovert:shiftSpacing(dist)
 
@@ -2523,7 +2502,7 @@ function Extrovert:parsePianoNote(note)
 
 		elseif self.command == -19 then -- On global TPQ command: translate the note+velocity into the global TPQ value
 
-			self.tpq = (note + self.velocity) * math.max(1, self.spacing)
+			self.tpq = math.max(1, math.min(1000, (note + self.velocity) * math.max(1, self.spacing)))
 			self.quant = self.tpq
 
 			self:propagateBPM() -- Propagate new tick speed
@@ -2736,12 +2715,6 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
-	self.tempo = { -- Time signature
-		n = 4, -- Numerator
-		d = 4, -- Denominator
-		p = 1, -- Product
-	}
-	self.tempostring = "4/4" -- GUI-friendly time signature string
 	
 	self.channel = 0 -- Current MIDI channel in the editor
 	self.command = 144 -- Current command type in the editor
