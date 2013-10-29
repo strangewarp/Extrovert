@@ -788,7 +788,7 @@ function Extrovert:populateLabels()
 
 	for i = 0, self.gridx - 1 do -- Colorize and label the page-label cells
 		pd.send("extrovert-color-out", "list", rgbOutList("extrovert-seq-key-" .. i, self.color[7][1], self.color[5][1]))
-		pd.send("extrovert-seq-key-" .. i, "label", {"P" .. (i - 1)})
+		pd.send("extrovert-seq-key-" .. i, "label", {"P" .. (i + 1)})
 	end
 
 end
@@ -914,7 +914,7 @@ function Extrovert:haltAllSustains()
 	for chan, susts in pairs(self.sustain) do
 		if next(susts) ~= nil then
 			for note, _ in pairs(susts) do
-				self:noteParse(128 + chan, note, 127)
+				self:noteParse({128 + chan, note, 127})
 			end
 		end
 	end
@@ -1220,8 +1220,6 @@ function Extrovert:sendSimpleRow(xpoint, yrow)
 	
 	end
 	
-	pd.post("LED send: " .. tostring(xpoint) .. " x " .. yrow) -- DEBUGGING
-	
 	pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
 	
 end
@@ -1504,7 +1502,7 @@ function Extrovert:loadData()
 
 	self:stopTempo() -- Stop the tempo system, if applicable
 
-	local tab = {}
+	local tab, stats = {}, {}
 	local bpm, tpq, numerator, denominator = false, false, false, false
 
 	-- Translate all MIDI files in the savefolder into their corresponding MIDIlua-shaped tables, and then translate those tables into Extrovert Tables
@@ -1515,13 +1513,13 @@ function Extrovert:loadData()
 		pd.post("Now loading: " .. fileloc)
 		
 		-- Try to open the next MIDI file in the savefolder; if it doesn't exist, keep the previous file's table contents
-		local midifile = assert(io.open(fileloc, 'r'))
+		local midifile = io.open(fileloc, 'r')
 		if midifile ~= nil then
 
 			tab = MIDI.midi2score(midifile:read('*all'))
 			midifile:close()
 
-			local stats = MIDI.score2stats(tab)
+			stats = MIDI.score2stats(tab)
 
 			if not tpq then
 				tpq = table.remove(tab, 1)
@@ -1533,7 +1531,7 @@ function Extrovert:loadData()
 		
 		-- Insert items into the output table until it matches the number of ticks in the MIDIlua score
 		local outtab = { {} }
-		while #outtab < stats.nticks do
+		while #outtab <= stats.nticks do
 			table.insert(outtab, {})
 		end
 		
@@ -1590,7 +1588,7 @@ function Extrovert:loadData()
 	self.tempo.n = numerator or 4
 	self.tempo.d = denominator or 4
 	self.tempo.p = self.tempo.n / self.tempo.d
-	self.tempo.report = self.tempo.n .. "/" .. self.tempo.d
+	self.tempostring = self.tempo.n .. "/" .. self.tempo.d
 	
 	pd.post("Loaded savefolder /" .. self.hotseats[self.activeseat] .. "/!")
 	pd.post("Beats Per Minute:" .. self.bpm)
@@ -2233,9 +2231,9 @@ function Extrovert:shiftTempo(numdist, denomdist)
 	self.tempo.n = math.max(1, self.tempo.n + numdist)
 	self.tempo.d = math.max(1, self.tempo.d + denomdist)
 	self.tempo.p = self.tempo.n / self.tempo.d
-	self.tempo.report = self.tempo.n .. "/" .. self.tempo.d
+	self.tempostring = self.tempo.n .. "/" .. self.tempo.d
 
-	self:updateControlTile("tempo.report")
+	self:updateControlTile("tempostring")
 	self:updateEditorPanel()
 
 end
@@ -2259,14 +2257,8 @@ function Extrovert:shiftQuant(dist)
 	local rawnew = self.quant * multiplier
 
 	if self.quant == 1 then -- If the old quantization was a single tick...
-		if rawnew == 2 then -- If quantization is being increased, then find the smallest non-1 divisor of TPQ, and set it to quantization
-			local findval = self.tpq
-			while (findval == math.floor(findval))
-			and (findval ~= 1)
-			do
-				findval = findval / 2
-			end
-			self.quant = findval
+		if rawnew == 2 then -- If quantization is being increased, then set quantization to TPQ
+			self.quant = self.tpq
 		else -- Ignore attempts to decrease quantization below 1
 			pd.post("Cannot decrease quantization to values lower than 1!")
 		end
@@ -2748,8 +2740,8 @@ function Extrovert:initialize(sel, atoms)
 		n = 4, -- Numerator
 		d = 4, -- Denominator
 		p = 1, -- Product
-		report = "4/4", -- GUI-friendly time signature string
 	}
+	self.tempostring = "4/4" -- GUI-friendly time signature string
 	
 	self.channel = 0 -- Current MIDI channel in the editor
 	self.command = 144 -- Current command type in the editor

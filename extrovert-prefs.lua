@@ -119,8 +119,8 @@ return {
 			
 		editor = { -- Editor panel
 		
-			cols = 3, -- Number of editor columns
-			rows = 36, -- Number of editor rows
+			cols = 1, -- Number of editor columns
+			rows = 40, -- Number of editor rows
 			height = 12, -- Row height (in pixels)
 			width = { -- Editor row segment widths (in pixels)
 				tick = 40, -- Tick segment
@@ -147,7 +147,7 @@ return {
 				{3, 2, "acceptpiano", "Piano", "extrovert-piano-button"},
 				{2, 1, "bpm", "BPM", "extrovert-bpm-button"},
 				{2, 1, "tpq", "TPQ", "extrovert-tpq-button"},
-				{2, 1, "tempo.report", "Tempo", "extrovert-tempo-button"},
+				{2, 1, "tempostring", "Tempo", "extrovert-tempo-button"},
 				{2, 1, "clocktype", "CLOCK", "extrovert-clock-button"},
 				{3, 1, "key", "Seq", "extrovert-sequence-button"},
 				{3, 3, "pointer", "Tick", "extrovert-tick-button"},
