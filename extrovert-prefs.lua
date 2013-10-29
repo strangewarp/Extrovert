@@ -144,7 +144,7 @@ return {
 			
 			tiles = { -- DO NOT CHANGE. Names and data for sidebar buttons in the GUI.
 			
-				{3, 2, "acceptpiano", "Piano", "extrovert-piano-button"},
+				{3, 2, "recording", "Piano", "extrovert-piano-button"},
 				{2, 1, "bpm", "BPM", "extrovert-bpm-button"},
 				{2, 1, "tpq", "TPQ", "extrovert-tpq-button"},
 				{2, 1, "clocktype", "CLOCK", "extrovert-clock-button"},
@@ -337,16 +337,26 @@ return {
 			"Right",
 		},
 
-		SPACING_INC = {
+		SPACING_DEC_1 = {
 			"Shift",
-			"Up",
-		},
-
-		SPACING_DEC = {
-			"Shift",
-			"Down",
+			"J",
 		},
 		
+		SPACING_INC_1 = {
+			"Shift",
+			"K",
+		},
+
+		SPACING_DEC_QGAP = {
+			"Shift",
+			"H",
+		},
+		
+		SPACING_INC_QGAP = {
+			"Shift",
+			"L",
+		},
+
 		QUANTIZATION_INC = {
 			"Shift",
 			"Prior",
@@ -590,8 +600,10 @@ return {
 		SPACE_INSERT = { "addSpaceToSequence" },
 		SPACE_DELETE = { "deleteSpaceFromSequence" },
 		
-		SPACING_DEC = { "shiftSpacing", -1 },
-		SPACING_INC = { "shiftSpacing", 1 },
+		SPACING_DEC_1 = { "shiftSpacing", -1, false },
+		SPACING_INC_1 = { "shiftSpacing", 1, false },
+		SPACING_DEC_QGAP = { "shiftSpacing", -1, true },
+		SPACING_INC_QGAP = { "shiftSpacing", 1, true },
 		
 		QUANTIZATION_DEC = { "shiftQuant", -1 },
 		QUANTIZATION_INC = { "shiftQuant", 1 },

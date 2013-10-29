@@ -1593,6 +1593,7 @@ function Extrovert:loadData()
 	
 	self:makeCleanHistory() -- Reset undo history
 	
+	self:updateControlBar()
 	self:updateEditorPanel()
 	
 	self:startTempo() -- Start the tempo system again, if applicable
@@ -2218,9 +2219,9 @@ function Extrovert:moveSequenceAcross(spaces)
 end
 
 -- Shift self.spacing by a given amount
-function Extrovert:shiftSpacing(dist)
+function Extrovert:shiftSpacing(dist, quantgap)
 
-	self.spacing = math.max(0, self.spacing + (self.quant * dist))
+	self.spacing = math.max(0, self.spacing + (((quantgap and self.quant) or 1) * dist))
 	
 	pd.post("Spacing: " .. self.spacing)
 	
@@ -2502,7 +2503,7 @@ function Extrovert:parsePianoNote(note)
 
 		elseif self.command == -19 then -- On global TPQ command: translate the note+velocity into the global TPQ value
 
-			self.tpq = math.max(1, math.min(1000, (note + self.velocity) * math.max(1, self.spacing)))
+			self.tpq = math.max(1, math.min(1000, note * self.velocity))
 			self.quant = self.tpq
 
 			self:propagateBPM() -- Propagate new tick speed
@@ -2599,7 +2600,7 @@ function Extrovert:togglePianoRecording()
 	
 	pd.post("Keyboard-piano recording: " .. tostring(self.recording))
 	
-	self:updateControlTile("acceptpiano")
+	self:updateControlTile("recording")
 	
 end
 
