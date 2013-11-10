@@ -819,43 +819,43 @@ function Extrovert:noteSend(n)
 	
 		pd.send("extrovert-midiout-note", "list", {n[3], 0, n[1]})
 		
-		pd.post("NOTE-OFF: " .. n[1] + n[2] .. " " .. n[3] .. " 0") -- DEBUGGING
+		--pd.post("NOTE-OFF: " .. n[1] + n[2] .. " " .. n[3] .. " 0") -- DEBUGGING
 	
 	elseif n[2] == 144 then
 	
 		pd.send("extrovert-midiout-note", "list", {n[3], n[4], n[1]})
 		
-		pd.post("NOTE-ON: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+		--pd.post("NOTE-ON: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
 	elseif n[2] == 160 then
 	
 		pd.send("extrovert-midiout-poly", "list", {n[3], n[4], n[1]})
 		
-		pd.post("POLY-TOUCH: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+		--pd.post("POLY-TOUCH: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
 	elseif n[2] == 176 then
 	
 		pd.send("extrovert-midiout-control", "list", {n[3], n[4], n[1]})
 		
-		pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
+		--pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
 	
 	elseif n[2] == 192 then
 	
 		pd.send("extrovert-midiout-program", "list", {n[3], n[1]})
 		
-		pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+		--pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
 	elseif n[2] == 208 then
 	
 		pd.send("extrovert-midiout-press", "list", {n[3], n[1]})
 		
-		pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+		--pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
 	elseif n[2] == 224 then
 	
 		pd.send("extrovert-midiout-bend", "list", {n[3], n[1]})
 		
-		pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
+		--pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
 	
 	elseif n[2] == -10 then -- Local TEMPO command
 	
@@ -939,7 +939,7 @@ function Extrovert:findNewGlobalGate()
 	
 	for _, v in pairs(self.seq) do -- For all sequences...
 		if v.active then -- If the sequence is active...
-			tempsize = math.max(tempsize, (#v.tick / self.gridx) * ((v.loop.high - v.loop.low) + 1)) -- If the loop-length is larger than tempsize, put loop-length value into tempsize
+			tempsize = math.max(tempsize, (#v.tick / self.gridx) * (v.loop.high - (v.loop.low - 1))) -- If the loop-length is larger than tempsize, put loop-length value into tempsize
 		end
 	end
 
@@ -961,7 +961,7 @@ function Extrovert:parseIncomingFlags(s)
 		self.seq[s].active = false
 		
 		-- If this sequence's loop was the longest active one...
-		if ((self.seq[s].pointer - math.max(1, (#self.seq[s].tick / self.gridx) * (self.seq[s].loop.low - 1))) + 1) == self.longest then
+		if math.max(1, math.floor((#self.seq[s].tick / self.gridx) * (self.seq[s].loop.high - (self.seq[s].loop.low - 1)))) == self.longest then
 			self:findNewGlobalGate()
 		end
 		
@@ -1028,7 +1028,7 @@ function Extrovert:iterateSequence(s)
 
 	if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 	
-		if self.seq[s].incoming.gate then -- If the GATE flag is true...
+		if self.seq[s].incoming.gate then -- If the GATE flag is active...
 			if ((self.tick - 1) % math.floor(self.longest / self.seq[s].incoming.gate)) == 0 then -- On global ticks that correspond to the gate-tick amount...
 				self:parseIncomingFlags(s)
 			end
@@ -1407,7 +1407,7 @@ function Extrovert:parseCommandButton(x, s)
 	elseif x == 4 then -- Parse LOOP button
 		self.ctrlflags.loop = flagbool
 	elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
-		self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, (2 ^ (x - 5)))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
+		self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, 2 ^ (x - 5))) -- x5: gridx/1. x6: gridx/2. x7: gridx/4. x8: gridx/8. etc. Rounded up for sub-1 vals.
 	end
 
 	self:sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
@@ -1442,8 +1442,9 @@ function Extrovert:saveData()
 		for chan = 1, 16 do
 
 			score[chan] = {
-				{"set_tempo", 0, 60000000 / self.bpm}, -- Defaut tempo; microseconds per beat
-				{"time_signature", 0, 4, 4, self.tpq, 8} -- Time signature: numerator, denominator, ticks per 1/4, 32nds per 1/4
+				{"set_tempo", 0, 60000000 / self.bpm}, -- Default tempo; microseconds per beat
+				{"time_signature", 0, 4, 4, self.tpq, 8}, -- Time signature: numerator, denominator, ticks per 1/4, 32nds per 1/4
+				{"end_track", #self.seq[i].tick - 1}, -- End track at last tick, so that trailing empty ticks aren't clipped
 			}
 
 			for tick, notes in ipairs(self.seq[i].tick) do
@@ -1471,8 +1472,6 @@ function Extrovert:saveData()
 				
 			end
 
-			table.insert(score[chan], {"end_track", #self.seq[i].tick - 1}) -- Insert an end-point into the track, so that trailing empty ticks aren't clipped
-			
 		end
 
 		-- Insert all previously-collected tempo-change commands into all channels of the MIDI score
