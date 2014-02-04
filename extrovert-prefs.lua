@@ -106,7 +106,7 @@ return {
 		seq = { -- Sequence-activity columns
 		
 			height = 50, -- Segment height (in pixels)
-			width = 38, -- Column width (in pixels)
+			width = 50, -- Column width (in pixels)
 			xmargin = 5, -- Horizontal margins (in pixels)
 			ymargin = 2, -- Vertical margins (in pixels)
 			
@@ -182,20 +182,17 @@ return {
 	
 	},
 	
-	-- DO NOT CHANGE. Table of references that joins the command names to their corresponding functions.
-	cmdfunctions = {
-	
-		MIDI_PANIC = { "haltAllSustains" },
-		LOAD = { "loadMidiFile" },
-
-	},
-
 	-- DO NOT CHANGE. Table of references that joins OSC API commands to their corresponding functions.
-	osccommands = {
+	metacommands = {
 
-		testnote = { "parsePianoNote" },
-		loadmidi = { "loadMidiFile" },
-		buttonpress = { "parseVirtualButtonPress" },
+		-- Keychord commands
+		MIDI_PANIC = { "haltAllSustains", "self" },
+		LOAD = { "loadMidiFile", "self" },
+
+		-- OSC commands
+		buttonpress = { "parseVirtualButtonPress", "self" },
+		loadmidi = { "loadMidiFile", "self" },
+		testnote = { "parsePianoNote", "self" },
 
 	},
 	

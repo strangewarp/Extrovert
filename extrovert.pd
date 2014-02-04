@@ -1,7 +1,7 @@
-#N canvas 60 202 414 232 10;
+#N canvas 60 202 414 196 10;
 #X declare -lib mrpeach;
 #X obj 22 282 import mrpeach;
-#N canvas 585 24 748 658 extrovert-gui 1;
+#N canvas 585 24 618 345 extrovert-gui 1;
 #X restore 22 321 pd extrovert-gui;
 #N canvas 605 133 507 526 extrovert-gui-sender 1;
 #X msg 66 154 vis 1 \, clear;
@@ -125,12 +125,8 @@
 #X connect 33 0 7 0;
 #X restore 22 397 pd extrovert-midi-clock;
 #X text 23 14 EXTROVERT;
-#X text 23 124 https://github.com/strangewarp/extrovert;
-#X text 23 84 If you are new to this program \,;
-#X text 23 94 please peruse the README.TXT.;
-#X text 23 114 Additional information can be found at;
-#X text 23 34 A MIDI beatslicing sequencer for the Monome \,;
-#X text 23 134 http://breck.us/extrovert;
+#X text 23 114 https://github.com/strangewarp/extrovert;
+#X text 23 104 Additional information can be found at;
 #N canvas 631 219 651 483 extrovert-midi-out 1;
 #X obj 30 33 r extrovert-midiout-note;
 #X obj 30 79 noteout;
@@ -269,6 +265,7 @@
 #X connect 40 0 38 0;
 #X connect 40 0 39 0;
 #X restore 22 378 pd extrovert-monome;
-#X text 23 44 with an integrated sequence editor.;
-#X text 23 64 Savefiles are cross-compatible with most MIDI editors.
-;
+#X text 23 34 A MIDI beatslicing sequencer for the Monome.;
+#X text 23 64 Each track corresponds to a sequence \,;
+#X text 23 74 and all are held within a single file.;
+#X text 23 54 Savefiles are in MIDI Format 2:;

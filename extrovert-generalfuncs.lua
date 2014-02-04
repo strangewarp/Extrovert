@@ -60,15 +60,8 @@ return {
 
 	end,
 
-	-- Move a given table of functions into global namespace
-	funcsToGlobals = function(tab)
-		for k, v in pairs(tab) do
-			_G[k] = v
-		end
-	end,
-
-	-- Move a given table of functions into Extrovert-object namespace
-	funcsToSelfFuncs = function(tab, context)
+	-- Move a given table of functions into a different namespace
+	funcsToNewContext = function(tab, context)
 		for k, v in pairs(tab) do
 			context[k] = v
 		end

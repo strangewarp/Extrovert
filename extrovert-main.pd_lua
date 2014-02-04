@@ -1,7 +1,7 @@
 
 local Extrovert = pd.Class:new():register("extrovert-main")
 
-local MIDI = require('MIDI')
+MIDI = require('MIDI')
 
 local generalfuncs = require('extrovert-generalfuncs')
 local guifuncs = require('extrovert-guifuncs')
@@ -14,13 +14,22 @@ local selfmonomefuncs = require('extrovert-self-monomefuncs')
 local selfseqfuncs = require('extrovert-self-seqfuncs')
 local selfutilfuncs = require('extrovert-self-utilfuncs')
 
-generalfuncs.funcsToGlobals(generalfuncs)
+generalfuncs.funcsToNewContext(generalfuncs, _G)
 
-funcsToGlobals(guifuncs)
-funcsToGlobals(monomefuncs)
-funcsToGlobals(seqfuncs)
+funcsToNewContext(guifuncs, _G)
+funcsToNewContext(monomefuncs, _G)
+funcsToNewContext(seqfuncs, _G)
 
-
+function deepPrint(t, tabs) -- DEBUGGING
+    for k, v in pairs(t) do
+        if type(v) ~= "table" then
+            pd.post(string.rep("..|.", tabs) .. k .. " = " .. tostring(v))
+        else
+            pd.post(string.rep("..|.", tabs) .. "[" .. k .. "]")
+            deepPrint(v, tabs + 1)
+        end
+    end
+end
 
 function Extrovert:initialize(sel, atoms)
 
@@ -29,16 +38,17 @@ function Extrovert:initialize(sel, atoms)
 	-- 3. Monome button
 	-- 4. Monome ADC
 	-- 5. MIDI CLOCK IN
-	self.inlets = 5
+	-- 6. External OSC commands (non-Monome)
+	self.inlets = 6
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
 	
-	funcsToSelfFuncs(selfguifuncs, Extrovert)
-	funcsToSelfFuncs(selfmetrofuncs, Extrovert)
-	funcsToSelfFuncs(selfmonomefuncs, Extrovert)
-	funcsToSelfFuncs(selfseqfuncs, Extrovert)
-	funcsToSelfFuncs(selfutilfuncs, Extrovert)
+	funcsToNewContext(selfguifuncs, Extrovert)
+	funcsToNewContext(selfmetrofuncs, Extrovert)
+	funcsToNewContext(selfmonomefuncs, Extrovert)
+	funcsToNewContext(selfseqfuncs, Extrovert)
+	funcsToNewContext(selfutilfuncs, Extrovert)
 
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
 	
@@ -51,7 +61,7 @@ function Extrovert:initialize(sel, atoms)
 	}
 	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
-	self.cmdfuncs = self.prefs.cmdfunctions -- Get the hash that joins command-names to function-names
+	self.cmdnames = self.prefs.metacommands -- Get the list of function-references triggered by their corresponding commands
 	
 	self.savepath = self.prefs.dirs.saves -- User-defined absolute path that contains all savefolders
 	if self.savepath:sub(-1) ~= "/" then
@@ -96,6 +106,7 @@ function Extrovert:initialize(sel, atoms)
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
 
 	self.swap = {} -- Holds the keys of all sequences whose activity will be swapped/rotated
+	self.pageswap = {} -- Holds the page-numbers whose sub-sequences will all be swapped
 	self.swapgate = 1
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
@@ -292,4 +303,13 @@ function Extrovert:in_5(sel, m)
 		
 	end
 	
+end
+
+
+
+-- Parse and execute external OSC commands, from external MIDI editor programs designed to work alongside Extrovert
+function Extrovert:in_6_list(t)
+
+	self:parseFunctionCommand(t)
+
 end

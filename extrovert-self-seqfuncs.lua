@@ -252,7 +252,7 @@ return {
 	-- Swap the LOOP and INCOMING flags, and comparable pointer positions, of every sequence in the SWAP queue, if applicable
 	swapAllSeqFlags = function(self)
 
-		if next(self.pageswap ~= nil)
+		if next(self.pageswap) ~= nil
 		and ((#self.pageswap) > 1)
 		then -- Swap the activity of two pages' worth of sequences
 

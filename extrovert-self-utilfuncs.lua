@@ -97,24 +97,34 @@ return {
 	end,
 
 	-- Analyze an incoming command name, and invoke its corresponding function and arguments
-	parseFunctionCommand = function(self, cmd)
+	parseFunctionCommand = function(self, ...)
 
-		-- Check the incoming command name against the command-to-function hash table
-		for k, v in pairs(self.cmdfuncs) do
+		local name = table.remove(arg, 1)
+		local items = {}
 
-			if cmd == k then -- If the command name matches a command-to-function hash entry, invoke the function and its args dynamically
+		if self.cmdnames[name] ~= nil then -- Get the command's name, and self-arg (or lack thereof)
+			items = self.cmdnames[name]
+		else -- On invalid name, quit the function
+			pd.post("Error: Received unknown command: \"" .. name .. "\"")
+			return nil
+		end
 
-				local passargs = {}
-				for i = 2, #v do
-					table.insert(passargs, v[i])
-				end
+		-- Grab the target function-name
+		local target = table.remove(items, 1)
 
-				self[v[1]](self, unpack(passargs)) -- Call the dynamic function name with its entry's corresponding args
+		-- Combine the internal and external args
+		for k, v in ipairs(arg) do
+			table.insert(items, v)
+		end
 
-				break
+		pd.post("Received command: \"" .. name .. "\" -- args: " .. table.concat(items, " "))
 
-			end
-
+		-- Replace "self" with self, if applicable, and invoke the function with correct shape
+		if items[1] == "self" then
+			items[1] = self
+			self[target](unpack(items))
+		else
+			_G[target](unpack(items))
 		end
 
 	end,
@@ -133,8 +143,7 @@ return {
 		for k, _ in pairs(self.hotseats) do
 			if self.hotseatcmds[k] ~= nil then
 				local cmdname = "HOTSEAT_" .. k
-				self.commands[cmdname] = self.hotseatcmds[k]
-				self.cmdfuncs[cmdname] = {"toggleToHotseat", k}
+				self.cmdnames[cmdname] = {"toggleToHotseat", k}
 			end
 		end
 	end,

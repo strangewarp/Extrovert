@@ -218,7 +218,7 @@ return {
 			self:parseSeqButton(x, y, s)
 		end
 		
-		pd.post("Monome cmd: " .. table.concat(t, " "))
+		pd.post("Monome cmd: " .. x .. " " .. y .. " " .. s)
 
 	end,
 
