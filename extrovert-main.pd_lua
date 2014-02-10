@@ -8,6 +8,7 @@ local guifuncs = require('extrovert-guifuncs')
 local monomefuncs = require('extrovert-monomefuncs')
 local seqfuncs = require('extrovert-seqfuncs')
 
+local selfapifuncs = require('extrovert-self-apifuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
 local selfmonomefuncs = require('extrovert-self-monomefuncs')
@@ -19,17 +20,6 @@ generalfuncs.funcsToNewContext(generalfuncs, _G)
 funcsToNewContext(guifuncs, _G)
 funcsToNewContext(monomefuncs, _G)
 funcsToNewContext(seqfuncs, _G)
-
-function deepPrint(t, tabs) -- DEBUGGING
-    for k, v in pairs(t) do
-        if type(v) ~= "table" then
-            pd.post(string.rep("..|.", tabs) .. k .. " = " .. tostring(v))
-        else
-            pd.post(string.rep("..|.", tabs) .. "[" .. k .. "]")
-            deepPrint(v, tabs + 1)
-        end
-    end
-end
 
 function Extrovert:initialize(sel, atoms)
 
@@ -44,6 +34,7 @@ function Extrovert:initialize(sel, atoms)
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
 	
+	funcsToNewContext(selfapifuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
 	funcsToNewContext(selfmonomefuncs, Extrovert)
@@ -152,6 +143,8 @@ function Extrovert:in_1_bang()
 	self:propagateBPM()
 	
 	self:startTempo()
+
+	self:startAPI()
 	
 	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a page-button keypress, so that a page is properly active
 

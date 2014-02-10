@@ -103,14 +103,13 @@ return {
 		local items = {}
 
 		if self.cmdnames[name] ~= nil then -- Get the command's name, and self-arg (or lack thereof)
-			items = self.cmdnames[name]
+			items = deepCopy(self.cmdnames[name], {})
 		else -- On invalid name, quit the function
 			pd.post("Error: Received unknown command: \"" .. name .. "\"")
 			return nil
 		end
 
-		-- Grab the target function-name
-		local target = table.remove(items, 1)
+		local target = table.remove(items, 1) -- Grab the target function-name
 
 		-- Combine the internal and external args
 		for k, v in ipairs(arg) do
@@ -143,7 +142,8 @@ return {
 		for k, _ in pairs(self.hotseats) do
 			if self.hotseatcmds[k] ~= nil then
 				local cmdname = "HOTSEAT_" .. k
-				self.cmdnames[cmdname] = {"toggleToHotseat", k}
+				self.commands[cmdname] = self.hotseatcmds[k]
+				self.cmdnames[cmdname] = {"toggleToHotseat", "self", k}
 			end
 		end
 	end,

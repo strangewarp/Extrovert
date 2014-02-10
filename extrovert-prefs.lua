@@ -29,15 +29,11 @@ return {
 	},
 	
 	dirs = { -- User directories
-	
-		saves = "C:/Users/Christian/Documents/MUSIC_STAGING/", -- The path of the directory that holds the user's savefolders.
-	
+		saves = "C:/Users/Christian/Documents/MUSIC_STAGING/", -- The path of the directory that holds the user's savefiles.
 	},
 
-	editor = {
-
-		osclisten = 12000, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
-
+	api = {
+		port = 8500, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
 	},
 	
 	monome = {
