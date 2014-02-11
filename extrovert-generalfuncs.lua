@@ -60,6 +60,13 @@ return {
 
 	end,
 
+	extendTable = function(t, limit)
+		for i = 1, limit do
+			t[i] = t[i] or {}
+		end
+		return t
+	end,
+
 	-- Move a given table of functions into a different namespace
 	funcsToNewContext = function(tab, context)
 		for k, v in pairs(tab) do

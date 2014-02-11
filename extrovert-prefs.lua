@@ -32,6 +32,14 @@ return {
 		saves = "C:/Users/Christian/Documents/MUSIC_STAGING/", -- The path of the directory that holds the user's savefiles.
 	},
 
+	file = {
+
+		-- 0 to pad a sequence's ticks to a multiple of the Monome-width; 1 to pad them to a multiple of the Ticks-Per-Beat value.
+		-- Note: if the Ticks-Per-Beat value is not itself a multiple of the Monome width, setting this value to 1 may cause errors.
+		padding = 1,
+		
+	},
+
 	api = {
 		port = 8500, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
 	},

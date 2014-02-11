@@ -84,7 +84,7 @@ return {
 
 	-- Send all notes within a given tick in a given sequence
 	sendTickNotes = function(self, s, t)
-		if next(self.seq[s].tick[t]) ~= nil then
+		if self.seq[s].tick[t] ~= nil then
 			for tick, note in ipairs(self.seq[s].tick[t]) do
 				self:noteParse(note)
 			end
