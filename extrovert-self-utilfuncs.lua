@@ -28,12 +28,17 @@ return {
 		-- Reset all sequences, so that if the savefile doesn't contain enough sequences, there won't be any leftover data from the previous song
 		self:resetAllSequences()
 
+		pd.post("Tracks in file: " .. #score)
+
 		for tracknum, track in ipairs(score) do -- Read every track in the MIDI file's score table
 
 			-- If there are more tracks than sequence-tables, break from the loop
 			if tracknum > #self.seq then
-				do break end
+				pd.post("Tried to load track " .. tracknum .. ", but max allowed seqs is " .. #self.seq)
+				break
 			end
+
+			pd.post("Loading track " .. tracknum .. "...")
 
 			local outtab = {}
 
@@ -75,6 +80,8 @@ return {
 				elseif v[1] == "end_track" then -- Parse the track's end-time, in ticks
 					v[2] = v[2] + 1
 					outtab = extendTable(outtab, v[2])
+				elseif v[1] == "track_name" then -- Post the track's name
+					pd.post("Track name: " .. v[3])
 				else
 					pd.post("Discarded unsupported command: " .. v[1])
 				end
@@ -83,15 +90,12 @@ return {
 
 			-- Insert padding ticks, to a value that is either modulo the Monome width, or modulo the Ticks-Per-Beat value
 			local padtobeat = (self.prefs.file.padding == 1)
-			if outtab[1] == nil then -- If the loaded track was empty, insert a dummy tick, to prevent empty-sequence errors
-				table.insert(outtab, {})
+			if padtobeat then
+				outtab = extendTable(outtab, #outtab + ((tpq * 4) - (#outtab % (tpq * 4))))
+			else
+				outtab = extendTable(outtab, #outtab + (self.gridx - (#outtab % self.gridx)))
 			end
-			while ((not padtobeat) and ((#outtab % self.gridx) ~= 0))
-			or (padtobeat and ((#outtab % (tpq * 4)) ~= 0))
-			do
-				table.insert(outtab, {})
-			end
-			
+
 			-- Transfer the loaded sequence-table into the global sequences
 			self.seq[tracknum].tick = outtab
 
@@ -131,8 +135,8 @@ return {
 		local name = table.remove(arg, 1)
 		local items = {}
 
-		if self.cmdnames[name] ~= nil then -- Get the command's name, and self-arg (or lack thereof)
-			items = deepCopy(self.cmdnames[name], {})
+		if self.metacommands[name] ~= nil then -- Get the command's name, and self-arg (or lack thereof)
+			items = deepCopy(self.metacommands[name], {})
 		else -- On invalid name, quit the function
 			pd.post("Error: Received unknown command: \"" .. name .. "\"")
 			return nil
@@ -172,7 +176,7 @@ return {
 			if self.hotseatcmds[k] ~= nil then
 				local cmdname = "HOTSEAT_" .. k
 				self.commands[cmdname] = self.hotseatcmds[k]
-				self.cmdnames[cmdname] = {"toggleToHotseat", "self", k}
+				self.metacommands[cmdname] = {"toggleToHotseat", "self", k}
 			end
 		end
 	end,

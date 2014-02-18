@@ -1,9 +1,9 @@
-#N canvas 42 265 414 250 10;
+#N canvas 539 410 414 250 10;
 #X declare -lib mrpeach;
 #X obj 22 263 import mrpeach;
-#N canvas 585 24 618 345 extrovert-gui 1;
+#N canvas 539 4 618 345 extrovert-gui 1;
 #X restore 22 302 pd extrovert-gui;
-#N canvas 605 133 507 526 extrovert-gui-sender 1;
+#N canvas 605 133 507 526 extrovert-gui-sender 0;
 #X msg 66 154 vis 1 \, clear;
 #X obj 53 56 list trim;
 #X text 69 139 Clear old GUI;

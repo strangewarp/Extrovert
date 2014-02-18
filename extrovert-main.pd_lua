@@ -15,6 +15,8 @@ local selfmonomefuncs = require('extrovert-self-monomefuncs')
 local selfseqfuncs = require('extrovert-self-seqfuncs')
 local selfutilfuncs = require('extrovert-self-utilfuncs')
 
+local metacommands = require('extrovert-metacommands')
+
 generalfuncs.funcsToNewContext(generalfuncs, _G)
 
 funcsToNewContext(guifuncs, _G)
@@ -41,6 +43,8 @@ function Extrovert:initialize(sel, atoms)
 	funcsToNewContext(selfseqfuncs, Extrovert)
 	funcsToNewContext(selfutilfuncs, Extrovert)
 
+	funcsToNewContext(metacommands, Extrovert) -- Get the list of function-references triggered by their corresponding commands
+
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
 	
 	self.ctrlflags = { -- Holds all control-flags, which correspond to the control-buttons on the Monome
@@ -52,7 +56,6 @@ function Extrovert:initialize(sel, atoms)
 	}
 	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
-	self.cmdnames = self.prefs.metacommands -- Get the list of function-references triggered by their corresponding commands
 	
 	self.savepath = self.prefs.dirs.saves -- User-defined absolute path that contains all savefolders
 	if self.savepath:sub(-1) ~= "/" then

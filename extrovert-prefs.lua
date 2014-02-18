@@ -40,10 +40,6 @@ return {
 		
 	},
 
-	api = {
-		port = 8500, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
-	},
-	
 	monome = {
 	
 		height = 8, -- Monome height (in buttons)
@@ -99,12 +95,10 @@ return {
 	
 	},
 	
-	undo = {
-	
-		depth = 20, -- Number of steps that the undo-function is capable of reversing. Note: a very large number of steps may cause lag.
-	
+	api = {
+		port = 8500, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
 	},
-
+	
 	gui = {
 	
 		seq = { -- Sequence-activity columns
@@ -184,20 +178,6 @@ return {
 		{"Shift", "Tab", "("},
 		{"Shift", "Tab", ")"},
 	
-	},
-	
-	-- DO NOT CHANGE. Table of references that joins OSC API commands to their corresponding functions.
-	metacommands = {
-
-		-- Keychord commands
-		MIDI_PANIC = { "haltAllSustains", "self" },
-		LOAD = { "loadMidiFile", "self" },
-
-		-- OSC commands
-		buttonpress = { "parseVirtualButtonPress", "self" },
-		loadmidi = { "loadMidiFile", "self" },
-		testnote = { "parsePianoNote", "self" },
-
 	},
 	
 }

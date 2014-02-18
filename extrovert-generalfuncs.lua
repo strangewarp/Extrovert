@@ -50,6 +50,7 @@ return {
 				return false
 			end
 		end
+		
 		for v in pairs(t2) do
 			if t[v] ~= t2[v] then
 				return false
@@ -60,11 +61,21 @@ return {
 
 	end,
 
+	-- Add more sub-tables to a table, up to a given numeric index
 	extendTable = function(t, limit)
-		for i = 1, limit do
-			t[i] = t[i] or {}
+
+		if (next(t) == nil) then
+			t[1] = {}
 		end
+
+		if limit > #t then
+			for i = #t + 1, limit do
+				t[i] = {}
+			end
+		end
+
 		return t
+
 	end,
 
 	-- Move a given table of functions into a different namespace
