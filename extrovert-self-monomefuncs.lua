@@ -224,8 +224,9 @@ return {
 
 	-- Spoof a series of x,y button presses, as held in a list
 	parseVirtualButtonPress = function(self, ...)
+		local arg = {...}
 		for s = 1, 0, -1 do -- Spoof all downstrokes, and then spoof all upstrokes, to allow keychords
-			for i = 1, arg.n, 2 do
+			for i = 1, #arg, 2 do
 				self:parseButtonPress(arg[i], arg[i + 1], s)
 			end
 		end

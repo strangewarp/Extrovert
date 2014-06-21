@@ -17,9 +17,9 @@ return {
 
 	end,
 
-	-- Round number num, at decimal place idp
-	roundNum = function(num, idp)
-		mult = 10 ^ idp
+	-- Round number num, at decimal place dec
+	roundNum = function(num, dec)
+		local mult = 10 ^ dec
 		return math.floor((num * mult) + 0.5) / mult
 	end,
 
@@ -50,7 +50,7 @@ return {
 				return false
 			end
 		end
-		
+
 		for v in pairs(t2) do
 			if t[v] ~= t2[v] then
 				return false
