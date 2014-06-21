@@ -1,7 +1,9 @@
 return {
 	
 	-- Load a MIDI savefile folder, via the MIDI.lua apparatus
-	loadMidiFile = function(self)
+	loadMidiFile = function(self, fname)
+
+		fname = fname or self.hotseats[self.activeseat]
 
 		self:stopTempo() -- Stop the tempo system, if applicable
 
@@ -9,7 +11,7 @@ return {
 		local bpm, tpq = false, false
 
 		-- Get the MIDI file's full path and name
-		local fileloc = self.savepath .. self.hotseats[self.activeseat] .. ".mid"
+		local fileloc = self.savepath .. fname .. ".mid"
 		pd.post("Now loading: " .. fileloc)
 			
 		-- Try to open the MIDI file

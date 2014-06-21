@@ -306,6 +306,8 @@ end
 -- Parse and execute external OSC commands, from external MIDI editor programs designed to work alongside Extrovert
 function Extrovert:in_6_list(t)
 
-	self:parseFunctionCommand(t)
+	pd.post("Received Extrovert-OSC command: " .. table.concat(t, ", "))
+
+	self:parseOSC(t)
 
 end
