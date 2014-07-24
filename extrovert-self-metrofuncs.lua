@@ -22,7 +22,7 @@ return {
 
 	-- Propagate a beats-per-minute value to the Puredata tempo apparatus
 	propagateBPM = function(self)
-		local ms = 60000 / (self.bpm * self.tpq) -- Convert BPM and TPQ into milliseconds
+		local ms = 60000 / (self.bpm * self.tpq * 4) -- Convert BPM and TPQ into milliseconds
 		pd.send("extrovert-metro-speed", "float", {ms})
 	end,
 
