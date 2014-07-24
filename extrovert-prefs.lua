@@ -2,7 +2,7 @@ return {
 
 	hotseats = { -- Savefile hotseats, which can be called with simple key combinations, to quickly switch between songs during performance
 	
-		"default",
+		"default1",
 		"test",
 		"rentest",
 		"default",
@@ -91,7 +91,7 @@ return {
 	
 	midi = {
 	
-		clocktype = "master", -- MIDI CLOCK type ... "master" / "slave" / "thru" / "none" ... Both "master" and "none" will cause Extrovert to generate its own tempo.
+		clocktype = "none", -- MIDI CLOCK type ... "master" / "slave" / "thru" / "none" ... Both "master" and "none" will cause Extrovert to generate its own tempo.
 	
 	},
 	
