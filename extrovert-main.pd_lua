@@ -6,7 +6,6 @@ MIDI = require('MIDI')
 local generalfuncs = require('extrovert-generalfuncs')
 local guifuncs = require('extrovert-guifuncs')
 local monomefuncs = require('extrovert-monomefuncs')
-local seqfuncs = require('extrovert-seqfuncs')
 
 local selfapifuncs = require('extrovert-self-apifuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
@@ -21,7 +20,6 @@ generalfuncs.funcsToNewContext(generalfuncs, _G)
 
 funcsToNewContext(guifuncs, _G)
 funcsToNewContext(monomefuncs, _G)
-funcsToNewContext(seqfuncs, _G)
 
 function Extrovert:initialize(sel, atoms)
 
@@ -83,7 +81,8 @@ function Extrovert:initialize(sel, atoms)
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 	
 	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
-	self.longest = self.gatedefault -- Holds the number of ticks inbetween gates; varies depending on which sequences are active
+	self.longseqs = {} -- Sequence with the longest active loop
+	self.longticks = self.gatedefault -- Number of ticks in the longest active loop
 	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
@@ -99,9 +98,8 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
 
-	self.swap = {} -- Holds the keys of all sequences whose activity will be swapped/rotated
-	self.pageswap = {} -- Holds the page-numbers whose sub-sequences will all be swapped
-	self.swapgate = 1
+	self.swap = {} -- Holds all sequence-pairs whose activity will be swapped
+	self.pageswap = {} -- Holds the page-numbers whose sub-sequences will be swapped
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
 	

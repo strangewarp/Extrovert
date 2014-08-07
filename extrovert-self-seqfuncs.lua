@@ -91,40 +91,18 @@ return {
 		end
 	end,
 
-	-- Look through all sequences, to find the largest active one, and change the global gating and tick values accordingly
-	findNewGlobalGate = function(self)
-
-		local tempsize = 0
-		
-		for _, v in pairs(self.seq) do -- For all sequences...
-			if v.active then -- If the sequence is active...
-				tempsize = math.max(tempsize, (#v.tick / self.gridx) * (v.loop.high - (v.loop.low - 1))) -- If the loop-length is larger than tempsize, put loop-length value into tempsize
-			end
-		end
-
-		if tempsize == 0 then -- If tempsize is still 0, that means no sequences are active, so set tempsize to the user-defined number of default gating ticks
-			tempsize = self.gatedefault
-		end
-
-		-- Bound the current tick within the new gating size, and set the global gatesize value to said size
-		self.tick = ((self.tick - 1) % tempsize) + 1
-		self.longest = tempsize
-
-	end,
-
 	-- Convert flags in the "incoming" table into a sequence's internal states
 	parseIncomingFlags = function(self, s)
 
-		if self.seq[s].incoming.off then -- The off-flag overrides all other flags
-		
+		self:swapAllSeqFlags() -- Swap all sequences and pages in the self.swap and self.pageswap tabs
+
+		-- If there's an incoming OFF flag...
+		if self.seq[s].incoming.off then
+
+			-- Deactivate the sequence
 			self.seq[s].active = false
-			
-			-- If this sequence's loop was the longest active one...
-			if math.max(1, math.floor((#self.seq[s].tick / self.gridx) * (self.seq[s].loop.high - (self.seq[s].loop.low - 1)))) == self.longest then
-				self:findNewGlobalGate()
-			end
-			
-		else
+
+		else -- Else, if there isn't an incoming OFF flag...
 		
 			self.seq[s].active = true -- Flag the sequence as active
 			
@@ -146,31 +124,21 @@ return {
 				end
 			end
 			
-			local modbutton = self.seq[s].incoming.button -- Set the temp pressed-button value to the incoming pressed-button
-			
-			if not rangeCheck(modbutton, self.seq[s].loop.low, self.seq[s].loop.high) then -- If modbutton is outside the loop boundaries...
-				modbutton = self.seq[s].loop.low -- Set modbutton to the low value
-			end
-			
 			local chunksize = #self.seq[s].tick / self.gridx -- Calculate the size of each subsection
-			local bpoint = ((modbutton - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
-			local seqticks = chunksize * ((self.seq[s].loop.high - self.seq[s].loop.low) + 1) -- Get the sequence's loop size
+			local bpoint = ((self.seq[s].loop.low - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
 			
-			if self.seq[s].incoming.resume then -- If RESUME is true...
-				self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
+			-- If RESUME is true...
+			if self.seq[s].incoming.resume then
+				-- If the seq's old tick-pointer doesn't fall between the ticks corresponding to low/high, resume it on the low subsection. Otherwise leave it alone
+				if not rangeCheck(self.seq[s].pointer, (self.seq[s].loop.low - 1) * chunksize, (self.seq[s].loop.high - 1) * chunksize) then
+					self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
+				end
 			else -- Else, change the pointer position to reflect the button-press position
-				self.seq[s].pointer = bpoint
+				self.seq[s].pointer = (chunksize * (self.seq[s].incoming.button - 1)) + 1
 			end
 			
-			-- Change the global tick and gatesize values, under certain circumstances
-			if seqticks > self.longest then -- If the sequence is larger than the current global gate-size...
+			pd.post("DYE: " .. #self.seq[s].tick .. " " .. bpoint .. " " .. self.seq[s].pointer) -- debugging
 			
-				-- Set the global tick value to reflect the button pushed, and set the global gate-size to the sequence's total loop time
-				self.tick = modbutton - (chunksize * (self.seq[s].loop.low - 1))
-				self.longest = seqticks
-				
-			end
-
 		end
 
 		-- Empty the incoming table
@@ -188,7 +156,7 @@ return {
 		if next(self.seq[s].incoming) ~= nil then -- If the sequence has incoming flags...
 		
 			if self.seq[s].incoming.gate then -- If the GATE flag is active...
-				if ((self.tick - 1) % math.floor(self.longest / self.seq[s].incoming.gate)) == 0 then -- On global ticks that correspond to the gate-tick amount...
+				if ((self.tick - 1) % math.floor(self.longticks / self.seq[s].incoming.gate)) == 0 then -- On global ticks that correspond to the gate-tick amount...
 					self:parseIncomingFlags(s)
 				end
 			else -- If the GATE flag is false, process the flags on the soonest tick
@@ -198,7 +166,7 @@ return {
 		end
 
 		if self.seq[s].active then -- If the sequence is active...
-		
+
 			-- Get subsection size
 			local subsize = #self.seq[s].tick / self.gridx
 
@@ -225,7 +193,7 @@ return {
 			if newsub ~= oldsub then -- If the new subsection corresponds to a different button than the previous subsection...
 				self:sendMetaSeqRow(s) -- Send Monome sequence rows through the meta apparatus
 			end
-			
+
 		end
 		
 	end,
@@ -249,30 +217,50 @@ return {
 
 	end,
 
+	-- Swap the activity and flags of two sequences
+	swapSeqFlags = function(self, s1, s2)
+
+		-- Unset SWAP flags
+		self.seq[s1].incoming.swap = nil
+		self.seq[s2].incoming.swap = nil
+
+		-- Swap range boundaries
+		self.seq[s1].incoming.range = {self.seq[s2].loop.low, self.seq[s2].loop.high}
+		self.seq[s2].incoming.range = {self.seq[s1].loop.low, self.seq[s1].loop.high}
+
+		-- Swap pointer positions, adjusted against one another's concrete size
+		self.seq[s1].pointer, self.seq[s2].pointer =
+			math.floor(self.seq[s2].pointer / (#self.seq[s2].tick / #self.seq[s1].tick)),
+			math.floor(self.seq[s1].pointer / (#self.seq[s1].tick / #self.seq[s2].tick))
+
+	end,
+
 	-- Swap the LOOP and INCOMING flags, and comparable pointer positions, of every sequence in the SWAP queue, if applicable
 	swapAllSeqFlags = function(self)
 
+		-- Swap the activity of two pages' worth of sequences
 		if next(self.pageswap) ~= nil
 		and ((#self.pageswap) > 1)
-		then -- Swap the activity of two pages' worth of sequences
-
+		then
 			for i = 1, self.gridy - 2 do
-				local s = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap] - 1))
-				local s2 = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap - 1] - 1))
-				self.seq[s], self.seq[s2] = swapSeqFlags(self.seq[s], self.seq[s2])
+				local s = i + ((self.gridy - 2) * (self.pageswap[1] - 1))
+				local s2 = i + ((self.gridy - 2) * (self.pageswap[2] - 1))
+				self:swapSeqFlags(s, s2)
 			end
-
-		elseif (next(self.swap) ~= nil)
-		and (#self.swap > 1)
-		then -- Swap the activity of >=2 individually selected sequences
-
-			for i = 1, #self.swap do
-				self.seq[self.swap[i]], self.seq[self.swap[(i % #self.swap) + 1]] = swapSeqFlags(self.seq[self.swap[i]], self.seq[self.swap[(i % #self.swap) + 1]])
-			end
-
 		end
 
-		-- Clear the SWAP and PAGESWAP tables only when this function is activated, on the swapgate
+		-- Swap the activity of all swap-pairs
+		if (next(self.swap) ~= nil)
+		and (#self.swap[1] > 1)
+		then
+			for k, v in ipairs(self.swap) do
+				if #v == 2 then
+					self:swapSeqFlags(v[1], v[2])
+				end
+			end
+		end
+
+		-- Clear the SWAP and PAGESWAP tables only when this function is activated
 		self.swap = {}
 		self.pageswap = {}
 
@@ -282,18 +270,16 @@ return {
 	iterateAllSequences = function(self)
 
 		-- Increment global tick, bounded by global gate-size
-		self.tick = (self.tick % self.longest) + 1
+		self.tick = (self.tick % self.longticks) + 1
 		
 		self:decayAllSustains()
 
-		if ((((self.tick - 1) % self.longest) + 1) % math.floor(self.longest / self.swapgate)) == 0 then
-			self:swapAllSeqFlags()
-		end
-
-		-- Send all regular commands within all sequences
+		-- Send all regular commands within all sequences, and check against longseqs
 		for i = 1, (self.gridy - 2) * self.gridx do
 			self:iterateSequence(i)
 		end
+
+		self:checkForLongestLoop()
 
 	end,
 
@@ -306,8 +292,17 @@ return {
 		end
 
 		if self.ctrlflags.swap then -- If the SWAP command is active...
-			table.insert(self.swap, s)
-			self.swapgate = (self.longest / self.gridx) * (self.ctrlflags.gate or 1)
+
+			-- If no swap-pairs already exist, or the active swap-pair is full, insert a new-swap pair
+			if (next(self.swap) == nil)
+			or (#self.swap[#self.swap] == 2)
+			then
+				table.insert(self.swap, {})
+			end
+
+			-- Put the sequence into the top swap-pair
+			table.insert(self.swap[#self.swap], s)
+
 		end
 		
 		if self.ctrlflags.loop then -- If the LOOP command is active...
@@ -322,6 +317,127 @@ return {
 			self.seq[s].incoming.activated = true -- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
 		end
 		
+	end,
+
+	-- Check all sequences against longest-seq data
+	checkForLongestLoop = function(self)
+
+		for num = 1, #self.seq do
+
+			local s = self.seq[num]
+
+			if s.active then -- If the sequence is active...
+
+				-- Change longest-loop tracking vars, based on the seq's loop size.
+				local t = #s.tick
+				if t > self.longticks then
+					self.tick = 0
+					self.longseqs = {[num] = true}
+				elseif t == self.longticks then
+					self.longseqs[num] = true
+				else
+					self.longseqs[num] = nil
+				end
+
+			else -- Else, if the sequence is inactive...
+
+				-- If the inactive sequence has a longseqs entry...
+				if self.longseqs[num] ~= nil then
+
+					-- Nullify that longseqs entry
+					self.longseqs[num] = nil
+
+					-- Search for a new longest seq or seq-group
+					self:findLongestActiveSeqs()
+
+				end
+
+			end
+
+		end
+
+		self:checkLongTicks()
+
+	end,
+
+	-- Find the currently-playing sequences that contain the largest number of concrete ticks
+	findLongestActiveSeqs = function(self)
+
+		local longest = 0
+		local seqnums = {}
+
+		-- Look through all sequences and get the longest-in-ticks value, and a table of sequences that share that value
+		for k, v in pairs(self.seq) do
+			if v.active then
+				local t = #v.tick
+				if t > longest then
+					longest = t
+					seqnums = {k}
+				elseif t == longest then
+					table.insert(seqnums, k)
+				end
+			end
+		end
+
+		-- If any sequences are playing...
+		if next(seqnums) ~= nil then
+
+			-- Put those sequences' keys into the longseqs table
+			self.longseqs = {}
+			for _, v in pairs(seqnums) do
+				self.longseqs[v] = true
+			end
+
+		end
+
+		-- C
+		self:checkLongTicks()
+
+	end,
+
+	-- Check all longseqs for the largest longticks value
+	checkLongTicks = function(self)
+
+		-- Find the longseq with positional priority
+		local priority = false
+		for k, _ in pairs(self.longseqs) do
+			priority = math.min(priority or k, k)
+		end
+
+		-- If there is at least one longseq, modify things based on that sequence
+		if priority then
+
+			-- Get sequence information
+			local s = self.seq[priority]
+			local t = #s.tick
+
+			-- Set global longticks to the sequence's total ticks
+			self.longticks = t
+
+			-- Figure out whether the sequence's sub-loop covers a number of cells that is an even divisor of gridx
+			local cells = s.loop.high - (s.loop.low - 1)
+			local isdiv = false
+			local x = self.gridx
+			repeat
+				if x == cells then
+					isdiv = true
+					break
+				end
+				x = x / 2
+			until (x - math.floor(x)) > 0
+
+			-- If loop cleanly divides grid, then set global tick based on loop pointer; else set global tick to 1
+			if isdiv then
+				self.tick = s.pointer - ((t / self.gridx) * (s.loop.low - 1))
+			else
+				self.tick = 1
+			end
+
+		else -- If there are no longseqs, set global longticks to default, and global tick to 1
+			self.longticks = self.gatedefault
+			self.tick = 1
+		end
+
 	end,
 
 }
