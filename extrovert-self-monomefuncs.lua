@@ -187,7 +187,9 @@ return {
 		elseif x == 5 then -- Parse SWAP button
 			self.ctrlflags.swap = flagbool
 		elseif rangeCheck(x, 6, self.gridx) then -- Parse GATE buttons
-			self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, 2 ^ (x - 6))) -- From left to right: 1, 2, 4 (that's all if width=8), 8, 16, 16, 16, etc
+			-- Left to right on 8 width: 2, 4, 8
+			-- Left to right on 16+ width: 1, 2, 4, 8, 16, 16, 16, etc
+			self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
 		end
 
 		sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
