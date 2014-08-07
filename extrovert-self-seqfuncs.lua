@@ -137,8 +137,6 @@ return {
 				self.seq[s].pointer = (chunksize * (self.seq[s].incoming.button - 1)) + 1
 			end
 			
-			pd.post("DYE: " .. #self.seq[s].tick .. " " .. bpoint .. " " .. self.seq[s].pointer) -- debugging
-			
 		end
 
 		-- Empty the incoming table
@@ -390,7 +388,7 @@ return {
 
 		end
 
-		-- C
+		-- Check longseqs against longticks
 		self:checkLongTicks()
 
 	end,
@@ -429,13 +427,10 @@ return {
 			-- If loop cleanly divides grid, then set global tick based on loop pointer; else set global tick to 1
 			if isdiv then
 				self.tick = s.pointer - ((t / self.gridx) * (s.loop.low - 1))
-			else
-				self.tick = 1
 			end
 
 		else -- If there are no longseqs, set global longticks to default, and global tick to 1
 			self.longticks = self.gatedefault
-			self.tick = 1
 		end
 
 	end,
