@@ -1,3 +1,4 @@
+
 return {
 	
 	-- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
@@ -110,24 +111,86 @@ return {
 	-- Parse an incoming sequence-row command from the Monome
 	parseSeqButton = function(self, x, y, s)
 
-		if s == 1 then -- On down-keystrokes...
+		-- If this isn't a down-keystroke, abort function
+		if s ~= 1 then
+			return nil
+		end
+
+		local snum = 1 -- Sequence number
+		local col = 1 -- Column is 1, by default
+	
+		if self.overview then -- In overview mode...
+			snum = y + ((x - 1) * (self.gridy - 2)) -- Convert an overview button into its snum sequence
+		else -- In beatslice-view mode...
+			snum = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
+			col = x -- Match the col-value to the column of the button that has been pressed
+		end
 		
-			local target = 1 -- Target sequence
-			local section = 1 -- Section column is 1, by default
-		
-			if self.overview then -- In overview mode...
-				target = y + ((x - 1) * (self.gridy - 2)) -- Convert an overview button into its target sequence
-			else -- In beatslice-view mode...
-				target = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
-				section = x -- Match the section-value to the column of the button that has been pressed
+		-- If GATE is flagged, set incoming gate
+		if self.ctrlflags.gate then
+			self.seq[snum].incoming.gate = self.ctrlflags.gate
+			self:updateSeqButton(snum) -- Reflect this keystroke in the on-screen GUI
+		end
+
+		-- If OFF is flagged, set incoming deactivation
+		if self.ctrlflags.off then
+
+			self.seq[snum].incoming.off = true
+
+		else -- Else, if OFF isn't flagged...
+
+			-- If RESUME is flagged, set seq to resume from previous position
+			if self.ctrlflags.resume then
+				self.seq[snum].incoming.resume = true
 			end
-			
-			self:setIncomingFlags(target, section) -- Apply whatever control-flags are currently active to the sequence
-			
-			if self.seq[target].incoming.gate then -- If the sequence is gated to a later tick...
-				self:updateSeqButton(target) -- Reflect this keystroke in the on-screen GUI
+
+			-- If LOOP is flagged, set one of the seq's loop points
+			if self.ctrlflags.loop then
+
+				-- If incoming.range is nil, build it
+				self.seq[snum].incoming.range = self.seq[snum].incoming.range or {}
+
+				-- Insert the column value into the target sequence's range-button table
+				table.insert(self.seq[snum].incoming.range, col)
+
+				-- If the number of incoming loop-bounds is more than 2, remove the oldest one
+				if #self.seq[snum].incoming.range > 2 then
+					table.remove(self.seq[snum].incoming.range, 1)
+				end
+
 			end
-		
+
+			-- If SWAP is flagged, table the sequence for swapping
+			if self.ctrlflags.swap then
+
+				-- If no swap-pairs already exist, or the active swap-pair is full, insert a new-swap pair
+				if (next(self.swap) == nil)
+				or (#self.swap[#self.swap] == 2)
+				then
+					table.insert(self.swap, {})
+				end
+
+				-- Put the sequence into the top swap-pair
+				table.insert(self.swap[#self.swap], snum)
+
+			end
+
+		end
+
+		-- If not in SWAP-mode...
+		if not self.ctrlflags.swap then
+
+			-- Set the incoming button to the given subsection-button
+			self.seq[snum].incoming.button = button
+
+			-- If the sequence isn't already active...
+			if not self.seq[snum].active then
+
+				-- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
+				self.seq[snum].incoming.activated = true
+
+			end
+
 		end
 
 	end,
@@ -137,26 +200,66 @@ return {
 
 		if s == 1 then -- On down-keystrokes...
 
-			local cmdflag = false -- Gets toggled to true if any command buttons are being pressed
-			
-			-- Check all control-row flags
-			for k, v in pairs(self.ctrlflags) do
-				if v
-				and (k ~= "swap")
-				then
+			-- If any command-buttons are being pressed, set cmdflag to true
+			local cmdflag = false
+			for _, v in pairs(self.ctrlflags) do
+				if v then
 					cmdflag = true
-					for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do -- For every sequence on the relevant page...
-						self:setIncomingFlags(i, 1) -- Apply whatever control-flags are currently active to the sequence
-					end
-					self:updateSeqPage(x) -- Reflect this change in the on-screen GUI
+					break
 				end
 			end
 
-			if self.ctrlflags.swap then
-				table.insert(self.pageswap, x)
+			-- If GATE is flagged, set the page's seqs accordingly
+			if self.ctrlflags.gate then
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+					self.seq[i].incoming.gate = self.ctrlflags.gate
+				end
 			end
 
-			if not cmdflag then -- If this is not being chorded with any command-buttons...
+			-- If OFF is flagged, set the page's seqs accordingly
+			if self.ctrlflags.off then
+
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+					self.seq[i].incoming.off = true
+				end
+
+			else -- Else, if OFF isn't flagged...
+
+				-- If RESUME is flagged, set the page's seqs accordingly
+				if self.ctrlflags.resume then
+					for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+						self.seq[i].incoming.resume = true
+					end
+				end
+
+				-- If SWAP is flagged, set the page's seqs accordingly
+				if self.ctrlflags.swap then
+
+					-- Check whether the page is already within the pageswap table
+					local exists = false
+					for _, v in pairs(self.pageswap) do
+						if v == x then
+							exists = true
+							break
+						end
+					end
+
+					-- If the page isn't in the pageswap table, insert it
+					if not exists then
+						table.insert(self.pageswap, x)
+					end
+
+					-- If the pageswap table has more than two entries, remove the oldest one
+					if #self.pageswap > 2 then
+						table.remove(self.pageswap, 1)
+					end
+
+				end
+
+			end
+
+			-- If this is not being chorded with any command-buttons...
+			if not cmdflag then
 				self.page = x -- Tab to the selected page
 				self:sendPageRow()
 			end

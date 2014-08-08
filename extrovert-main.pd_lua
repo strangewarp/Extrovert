@@ -9,8 +9,10 @@ local monomefuncs = require('extrovert-monomefuncs')
 
 local selfapifuncs = require('extrovert-self-apifuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
+local selflongfuncs = require('extrovert-self-longfuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
 local selfmonomefuncs = require('extrovert-self-monomefuncs')
+local selfnotefuncs = require('extrovert-self-notefuncs')
 local selfseqfuncs = require('extrovert-self-seqfuncs')
 local selfutilfuncs = require('extrovert-self-utilfuncs')
 
@@ -36,8 +38,10 @@ function Extrovert:initialize(sel, atoms)
 	
 	funcsToNewContext(selfapifuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
+	funcsToNewContext(selflongfuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
 	funcsToNewContext(selfmonomefuncs, Extrovert)
+	funcsToNewContext(selfnotefuncs, Extrovert)
 	funcsToNewContext(selfseqfuncs, Extrovert)
 	funcsToNewContext(selfutilfuncs, Extrovert)
 
@@ -112,8 +116,6 @@ function Extrovert:initialize(sel, atoms)
 	
 end
 
-
-
 -- Finalize function: only activated when Extrovert is closed down
 function Extrovert:finalize()
 
@@ -122,8 +124,6 @@ function Extrovert:finalize()
 	darkenAllButtons() -- Darken all Monome buttons, so that they don't stay lit after the program shuts down
 
 end
-
-
 
 -- Run through Extrovert's on-startup functions, after receiving a bang from [loadbang].
 -- Some of these use pd.send(), which can't be used from within initialize() or postinitialize() (or from within any other functions thereby invoked), so this is a workaround.
@@ -150,8 +150,6 @@ function Extrovert:in_1_bang()
 	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a page-button keypress, so that a page is properly active
 
 end
-
-
 
 -- Parse incoming commands from the computer-keyboard
 function Extrovert:in_2_list(key)
@@ -201,8 +199,6 @@ function Extrovert:in_2_list(key)
 
 end
 
-
-
 -- Parse Monome button commands
 function Extrovert:in_3_list(t)
 
@@ -214,8 +210,6 @@ function Extrovert:in_3_list(t)
 	self:parseButtonPress(x, y, s)
 	
 end
-
-
 
 -- Parse Monome ADC commands
 function Extrovert:in_4_list(t)
@@ -229,8 +223,6 @@ function Extrovert:in_4_list(t)
 	end
 
 end
-
-
 
 -- Parse incoming tempo ticks or MIDI CLOCK commands
 function Extrovert:in_5(sel, m)
@@ -298,8 +290,6 @@ function Extrovert:in_5(sel, m)
 	end
 	
 end
-
-
 
 -- Parse and execute external OSC commands, from external MIDI editor programs designed to work alongside Extrovert
 function Extrovert:in_6_list(t)

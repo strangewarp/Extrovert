@@ -1,96 +1,6 @@
+
 return {
 	
-	-- Send an outgoing MIDI command, via the Puredata MIDI apparatus
-	noteSend = function(self, n)
-
-		if n[2] == 128 then
-			pd.send("extrovert-midiout-note", "list", {n[3], 0, n[1]})
-			--pd.post("NOTE-OFF: " .. n[1] + n[2] .. " " .. n[3] .. " 0") -- DEBUGGING
-		elseif n[2] == 144 then
-			pd.send("extrovert-midiout-note", "list", {n[3], n[4], n[1]})
-			--pd.post("NOTE-ON: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
-		elseif n[2] == 160 then
-			pd.send("extrovert-midiout-poly", "list", {n[3], n[4], n[1]})
-			--pd.post("POLY-TOUCH: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
-		elseif n[2] == 176 then
-			pd.send("extrovert-midiout-control", "list", {n[3], n[4], n[1]})
-			--pd.post("CONTROL-CHANGE: " .. n[1] + n[2] .. " " .. n[3] .. " " .. n[4]) -- DEBUGGING
-		elseif n[2] == 192 then
-			pd.send("extrovert-midiout-program", "list", {n[3], n[1]})
-			--pd.post("PROGRAM-CHANGE: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
-		elseif n[2] == 208 then
-			pd.send("extrovert-midiout-press", "list", {n[3], n[1]})
-			--pd.post("MONO-TOUCH: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
-		elseif n[2] == 224 then
-			pd.send("extrovert-midiout-bend", "list", {n[3], n[1]})
-			--pd.post("PITCH-BEND: " .. n[1] + n[2] .. " " .. n[3]) -- DEBUGGING
-		elseif n[2] == -10 then -- Local TEMPO command
-			self.bpm = n[3]
-			self:propagateBPM() -- Propagate new tick speed
-			self:updateControlTile("bpm") -- Update BPM tile in GUI
-		end
-		
-	end,
-
-	-- Parse an outgoing MIDI command, before actually sending it
-	noteParse = function(self, note)
-
-		if note[2] == 144 then -- If this is a NOTE-ON command, filter the note's contents through all applicable ADC values
-
-			for k, v in ipairs(self.adc) do -- For all ADCs...
-				if v.channel == note[1] then -- If the ADC applies to this note's MIDI channel...
-					if v.target == "note" then -- If the target is NOTE, modify the NOTE value based on the dial's position
-						note[3] = math.max(0, math.min(127, note[3] + v.bottom + math.floor(v.breadth * self.dial[k])))
-					elseif v.target == "velocity" then -- If the target is VELOCITY, modify the VELOCITY value based on the dial's position
-						note[4] = math.max(0, math.min(127, note[4] + v.bottom + math.floor(v.breadth * self.dial[k])))
-					end
-				end
-			end
-		
-		end
-
-		if rangeCheck(note[2], 128, 159) then -- If this is a NOTE-ON or NOTE-OFF command, modify the contents of the MIDI-sustain table
-		
-			local sust = self.sustain[note[1]][note[3]] or -1 -- If the corresponding sustain value isn't nil, copy it to sust; else set sust to -1
-		
-			if note[2] == 144 then -- For ON-commands, increase the note's global duration value by the incoming duration amount, if applicable
-				sust = math.max(note[5], sust)
-			else -- For OFF-commands, set sust to -1, so that the corresponding sustain value is nilled out
-				sust = -1
-			end
-			
-			if sust == -1 then -- If the sustain was nil and a note-ON didn't occur, or if a note-off occurred, set the sustain to nil
-				self.sustain[note[1]][note[3]] = nil
-			else -- If a note-ON occurred, set the relevant sustain to the note's duration value
-				self.sustain[note[1]][note[3]] = sust
-			end
-			
-		end
-		
-		self:noteSend(note)
-		
-	end,
-
-	-- Send NOTE-OFFs for all presently playing notes
-	haltAllSustains = function(self)
-		for chan, susts in pairs(self.sustain) do
-			if next(susts) ~= nil then
-				for note, _ in pairs(susts) do
-					self:noteParse({128 + chan, note, 127})
-				end
-			end
-		end
-	end,
-
-	-- Send all notes within a given tick in a given sequence
-	sendTickNotes = function(self, s, t)
-		if self.seq[s].tick[t] ~= nil then
-			for tick, note in ipairs(self.seq[s].tick[t]) do
-				self:noteParse(note)
-			end
-		end
-	end,
-
 	-- Convert flags in the "incoming" table into a sequence's internal states
 	parseIncomingFlags = function(self, s)
 
@@ -134,7 +44,9 @@ return {
 					self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
 				end
 			else -- Else, change the pointer position to reflect the button-press position
-				self.seq[s].pointer = (chunksize * (self.seq[s].incoming.button - 1)) + 1
+				if self.seq[s].incoming.button then
+					self.seq[s].pointer = (chunksize * (self.seq[s].incoming.button - 1)) + 1
+				end
 			end
 			
 		end
@@ -223,8 +135,10 @@ return {
 		self.seq[s2].incoming.swap = nil
 
 		-- Swap range boundaries
-		self.seq[s1].incoming.range = {self.seq[s2].loop.low, self.seq[s2].loop.high}
-		self.seq[s2].incoming.range = {self.seq[s1].loop.low, self.seq[s1].loop.high}
+		self.seq[s1].loop, self.seq[s2].loop = self.seq[s2].loop, self.seq[s1].loop
+
+		-- Swap sequence activity
+		self.seq[s1].active, self.seq[s2].active = self.seq[s2].active, self.seq[s1].active
 
 		-- Swap pointer positions, adjusted against one another's concrete size
 		self.seq[s1].pointer, self.seq[s2].pointer =
@@ -240,9 +154,10 @@ return {
 		if next(self.pageswap) ~= nil
 		and ((#self.pageswap) > 1)
 		then
+			pd.post("pageswap: " .. table.concat(self.pageswap, ", ")) -- debugging
 			for i = 1, self.gridy - 2 do
-				local s = i + ((self.gridy - 2) * (self.pageswap[1] - 1))
-				local s2 = i + ((self.gridy - 2) * (self.pageswap[2] - 1))
+				local s = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap - 1] - 1))
+				local s2 = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap] - 1))
 				self:swapSeqFlags(s, s2)
 			end
 		end
@@ -278,160 +193,6 @@ return {
 		end
 
 		self:checkForLongestLoop()
-
-	end,
-
-	-- Set a sequence's incoming control-flags, based on the active global control-flags
-	setIncomingFlags = function(self, s, button)
-
-		-- Put all control-flag states into the sequence's incoming-commands table
-		for k, v in pairs(self.ctrlflags) do
-			self.seq[s].incoming[k] = v
-		end
-
-		if self.ctrlflags.swap then -- If the SWAP command is active...
-
-			-- If no swap-pairs already exist, or the active swap-pair is full, insert a new-swap pair
-			if (next(self.swap) == nil)
-			or (#self.swap[#self.swap] == 2)
-			then
-				table.insert(self.swap, {})
-			end
-
-			-- Put the sequence into the top swap-pair
-			table.insert(self.swap[#self.swap], s)
-
-		end
-		
-		if self.ctrlflags.loop then -- If the LOOP command is active...
-			self.seq[s].incoming.range = self.seq[s].incoming.range or {} -- If incoming.range is nil, build it
-			table.insert(self.seq[s].incoming.range, button) -- Insert the x value into the target sequence's range-button table
-		end
-		
-		-- Set the incoming button to the given subsection-button
-		self.seq[s].incoming.button = button
-
-		if not self.seq[s].active then -- If the sequence isn't already active...
-			self.seq[s].incoming.activated = true -- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
-		end
-		
-	end,
-
-	-- Check all sequences against longest-seq data
-	checkForLongestLoop = function(self)
-
-		for num = 1, #self.seq do
-
-			local s = self.seq[num]
-
-			if s.active then -- If the sequence is active...
-
-				-- Change longest-loop tracking vars, based on the seq's loop size.
-				local t = #s.tick
-				if t > self.longticks then
-					self.tick = 0
-					self.longseqs = {[num] = true}
-				elseif t == self.longticks then
-					self.longseqs[num] = true
-				else
-					self.longseqs[num] = nil
-				end
-
-			else -- Else, if the sequence is inactive...
-
-				-- If the inactive sequence has a longseqs entry...
-				if self.longseqs[num] ~= nil then
-
-					-- Nullify that longseqs entry
-					self.longseqs[num] = nil
-
-					-- Search for a new longest seq or seq-group
-					self:findLongestActiveSeqs()
-
-				end
-
-			end
-
-		end
-
-		self:checkLongTicks()
-
-	end,
-
-	-- Find the currently-playing sequences that contain the largest number of concrete ticks
-	findLongestActiveSeqs = function(self)
-
-		local longest = 0
-		local seqnums = {}
-
-		-- Look through all sequences and get the longest-in-ticks value, and a table of sequences that share that value
-		for k, v in pairs(self.seq) do
-			if v.active then
-				local t = #v.tick
-				if t > longest then
-					longest = t
-					seqnums = {k}
-				elseif t == longest then
-					table.insert(seqnums, k)
-				end
-			end
-		end
-
-		-- If any sequences are playing...
-		if next(seqnums) ~= nil then
-
-			-- Put those sequences' keys into the longseqs table
-			self.longseqs = {}
-			for _, v in pairs(seqnums) do
-				self.longseqs[v] = true
-			end
-
-		end
-
-		-- Check longseqs against longticks
-		self:checkLongTicks()
-
-	end,
-
-	-- Check all longseqs for the largest longticks value
-	checkLongTicks = function(self)
-
-		-- Find the longseq with positional priority
-		local priority = false
-		for k, _ in pairs(self.longseqs) do
-			priority = math.min(priority or k, k)
-		end
-
-		-- If there is at least one longseq, modify things based on that sequence
-		if priority then
-
-			-- Get sequence information
-			local s = self.seq[priority]
-			local t = #s.tick
-
-			-- Set global longticks to the sequence's total ticks
-			self.longticks = t
-
-			-- Figure out whether the sequence's sub-loop covers a number of cells that is an even divisor of gridx
-			local cells = s.loop.high - (s.loop.low - 1)
-			local isdiv = false
-			local x = self.gridx
-			repeat
-				if x == cells then
-					isdiv = true
-					break
-				end
-				x = x / 2
-			until (x - math.floor(x)) > 0
-
-			-- If loop cleanly divides grid, then set global tick based on loop pointer; else set global tick to 1
-			if isdiv then
-				self.tick = s.pointer - ((t / self.gridx) * (s.loop.low - 1))
-			end
-
-		else -- If there are no longseqs, set global longticks to default, and global tick to 1
-			self.longticks = self.gatedefault
-		end
 
 	end,
 

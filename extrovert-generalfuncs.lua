@@ -1,3 +1,4 @@
+
 return {
 	
 	-- Check whether a value falls within a particular range; return true or false
