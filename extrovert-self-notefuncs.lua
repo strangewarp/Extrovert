@@ -1,6 +1,36 @@
 
 return {
 	
+	-- Send automatic noteoffs for duration-based notes that have expired
+	decayAllSustains = function(self)
+
+		for chan, notes in pairs(self.sustain) do
+			if next(notes) ~= nil then -- Check for active note-sustains within the channel before trying to act upon them
+				for note, dur in pairs(notes) do
+				
+					self.sustain[chan][note] = math.max(0, dur - 1) -- Decrease the relevant duration value
+				
+					if dur == 0 then -- If the duration has expired...
+						self:noteParse({chan, 128, note, 127, 0}) -- Parse a noteoff for the relevant channel and note
+					end
+					
+				end
+			end
+		end
+
+	end,
+
+	-- Send NOTE-OFFs for all presently playing notes
+	haltAllSustains = function(self)
+		for chan, susts in pairs(self.sustain) do
+			if next(susts) ~= nil then
+				for note, _ in pairs(susts) do
+					self:noteParse({128 + chan, note, 127})
+				end
+			end
+		end
+	end,
+
 	-- Send an outgoing MIDI command, via the Puredata MIDI apparatus
 	noteSend = function(self, n)
 
@@ -70,17 +100,6 @@ return {
 		
 		self:noteSend(note)
 		
-	end,
-
-	-- Send NOTE-OFFs for all presently playing notes
-	haltAllSustains = function(self)
-		for chan, susts in pairs(self.sustain) do
-			if next(susts) ~= nil then
-				for note, _ in pairs(susts) do
-					self:noteParse({128 + chan, note, 127})
-				end
-			end
-		end
 	end,
 
 	-- Send all notes within a given tick in a given sequence
