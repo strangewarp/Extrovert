@@ -9,7 +9,7 @@ return {
 		
 		self:decayAllSustains()
 
-		-- Send all regular commands within all sequences, and check against longseqs
+		-- Send all regular commands within all sequences, and check against longseq
 		for i = 1, (self.gridy - 2) * self.gridx do
 			self:iterateSequence(i)
 		end
