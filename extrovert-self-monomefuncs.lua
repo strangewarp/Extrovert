@@ -40,12 +40,38 @@ return {
 		elseif x == 5 then -- Parse SWAP button
 			self.ctrlflags.swap = flagbool
 		elseif rangeCheck(x, 6, self.gridx) then -- Parse GATE buttons
+
 			-- Left to right on 8 width: 2, 4, 8
-			-- Left to right on 16+ width: 1, 2, 4, 8, 16, 16, 16, etc
-			self.ctrlflags.gate = flagbool and math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
+			-- Left to right on 16 width: 1, 2, 4, 8, 16, 16, 16, etc
+
+			-- If this is a down keystroke...
+			if flagbool then
+
+				-- Get the old a new gate values, and see whether they match
+				local oldgate = self.ctrlflags.gate
+				local newgate = math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
+				local gatematch = newgate == oldgate
+
+				-- Set the global gate to false if the oldgate matches the newgate, since this is a toggle button, not a held-down button
+				self.ctrlflags.gate = ((not gatematch) and newgate) or false
+
+				-- Turn LEDs on and off, based on toggle / new-button activity
+				if oldgate ~= newgate then
+					for i = 6, self.gridx do
+						local gatelight = ((x == i) and 1) or 0
+						sendLED(i - 1, self.gridy - 1, gatelight)
+					end
+				else
+					sendLED(x - 1, self.gridy - 1, 0)
+				end
+
+			end
 		end
 
-		sendLED(x - 1, self.gridy - 1, light) -- Light up or darken the corresponding Monome button
+		-- If this wasn't a GATE button, send the LED straightforwardly
+		if x < 6 then
+			sendLED(x - 1, self.gridy - 1, light)
+		end
 
 	end,
 
@@ -72,51 +98,46 @@ return {
 				end
 			end
 
-			-- If GATE is flagged, set the page's seqs accordingly
+			-- If GATE is flagged, give every seq in the page a GATE flag
 			if self.ctrlflags.gate then
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
 					self.seq[i].incoming.gate = self.ctrlflags.gate
 				end
 			end
 
-			-- If OFF is flagged, set the page's seqs accordingly
-			if self.ctrlflags.off then
+			if self.ctrlflags.off then -- If OFF is flagged...
 
+				-- Give every seq in the page an OFF flag
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
 					self.seq[i].incoming.off = true
 				end
 
-			else -- Else, if OFF isn't flagged...
+			elseif self.ctrlflags.resume then -- Else, if RESUME is flagged...
 
-				-- If RESUME is flagged, set the page's seqs accordingly
-				if self.ctrlflags.resume then
-					for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
-						self.seq[i].incoming.resume = true
+				-- Give every seq in the page a RESUME flag
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+					self.seq[i].incoming.resume = true
+				end
+
+			elseif self.ctrlflags.swap then -- Else, if SWAP is flagged...
+
+				-- Check whether the page is already within the pageswap table
+				local exists = false
+				for _, v in pairs(self.pageswap) do
+					if v == x then
+						exists = true
+						break
 					end
 				end
 
-				-- If SWAP is flagged, set the page's seqs accordingly
-				if self.ctrlflags.swap then
+				-- If the page isn't in the pageswap table, insert it
+				if not exists then
+					table.insert(self.pageswap, x)
+				end
 
-					-- Check whether the page is already within the pageswap table
-					local exists = false
-					for _, v in pairs(self.pageswap) do
-						if v == x then
-							exists = true
-							break
-						end
-					end
-
-					-- If the page isn't in the pageswap table, insert it
-					if not exists then
-						table.insert(self.pageswap, x)
-					end
-
-					-- If the pageswap table has more than two entries, remove the oldest one
-					if #self.pageswap > 2 then
-						table.remove(self.pageswap, 1)
-					end
-
+				-- If the pageswap table has more than two entries, remove the oldest one
+				if #self.pageswap > 2 then
+					table.remove(self.pageswap, 1)
 				end
 
 			end
