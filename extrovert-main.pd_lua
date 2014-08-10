@@ -54,7 +54,7 @@ function Extrovert:initialize(sel, atoms)
 		resume = false,
 		loop = false,
 		swap = false,
-		gate = false, -- Fine-grained gating commands fill the rest of the control-row. This will hold a number to differentiate between them, or false when not active
+		gate = false, -- Gating commands fill the rest of the control-row. This will hold a number to differentiate between them, or false when not active
 	}
 	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
@@ -83,6 +83,8 @@ function Extrovert:initialize(sel, atoms)
 	end
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
+
+	self.gateheld = {} -- Holds the GATE buttons that are presently being held
 	
 	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
 	self.longseq = nil -- Sequence with the longest active loop

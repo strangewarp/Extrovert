@@ -44,13 +44,18 @@ return {
 			-- Left to right on 8 width: 2, 4, 8
 			-- Left to right on 16 width: 1, 2, 4, 8, 16, 16, 16, etc
 
+			-- Get the new GATE value
+			local newgate = math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
+
 			-- If this is a down keystroke...
 			if flagbool then
 
-				-- Get the old a new gate values, and see whether they match
+				-- Get the old GATE value, and see whether it mathes newgate
 				local oldgate = self.ctrlflags.gate
-				local newgate = math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
 				local gatematch = newgate == oldgate
+
+				-- Set this gate's gateheld entry to true
+				table.insert(self.gateheld, newgate)
 
 				-- Set the global gate to false if the oldgate matches the newgate, since this is a toggle button, not a held-down button
 				self.ctrlflags.gate = ((not gatematch) and newgate) or false
@@ -65,7 +70,15 @@ return {
 					sendLED(x - 1, self.gridy - 1, 0)
 				end
 
+			else -- If this is an up keystroke, remove the gate's gateheld table entry
+				for k, v in pairs(self.gateheld) do
+					if v == newgate then
+						table.remove(self.gateheld, k)
+						break
+					end
+				end
 			end
+
 		end
 
 		-- If this wasn't a GATE button, send the LED straightforwardly
@@ -91,17 +104,18 @@ return {
 
 			-- If any command-buttons are being pressed, set cmdflag to true
 			local cmdflag = false
-			for _, v in pairs(self.ctrlflags) do
-				if v then
+			for k, v in pairs(self.ctrlflags) do
+				if v and (k ~= 'gate') then
 					cmdflag = true
-					break
 				end
 			end
 
-			-- If GATE is flagged, give every seq in the page a GATE flag
-			if self.ctrlflags.gate then
+			-- If a GATE button is being held, give every seq in the page a GATE flag
+			local held = self.gateheld[#self.gateheld]
+			if held then
 				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
-					self.seq[i].incoming.gate = self.ctrlflags.gate
+					self.seq[i].incoming.gate = held
+					self:updateSeqButton(i)
 				end
 			end
 
