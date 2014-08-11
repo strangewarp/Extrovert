@@ -84,8 +84,8 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 
-	self.gateheld = {} -- Holds the GATE buttons that are presently being held
-	
+	self.gateheld = {} -- Holds the GATE values that are presently active
+
 	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
 	self.longseq = nil -- Sequence with the longest active loop
 	self.longticks = self.gatedefault -- Number of ticks in the longest active loop
@@ -150,6 +150,7 @@ function Extrovert:in_1_bang()
 	self:startAPI()
 	
 	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a page-button keypress, so that a page is properly active
+	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a second page-button keypress, so Overview Mode is untoggled
 
 end
 

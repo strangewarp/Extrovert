@@ -7,11 +7,7 @@ return {
 		if y == (self.gridy - 1) then -- Parse page-row commands
 			self:parsePageButton(x, s)
 		elseif y == self.gridy then -- Parse control-row commands
-			if x == 1 then
-				self:parseOverviewButton(s) -- Toggle Overview Mode
-			else
-				self:parseCommandButton(x, s) -- Toggle global command flags
-			end
+			self:parseCommandButton(x, s) -- Toggle global command flags
 		else -- Parse sequence-button commands
 			self:parseSeqButton(x, y, s)
 		end
@@ -31,70 +27,65 @@ return {
 			flagbool = false -- The flag will be set to false
 		end
 		
-		if x == 2 then -- Parse OFF button
+		if x == 1 then -- Parse OFF button
 			self.ctrlflags.off = flagbool
-		elseif x == 3 then -- Parse RESUME button
+		elseif x == 2 then -- Parse RESUME button
 			self.ctrlflags.resume = flagbool
-		elseif x == 4 then -- Parse LOOP button
+		elseif x == 3 then -- Parse LOOP button
 			self.ctrlflags.loop = flagbool
-		elseif x == 5 then -- Parse SWAP button
+		elseif x == 4 then -- Parse SWAP button
 			self.ctrlflags.swap = flagbool
-		elseif rangeCheck(x, 6, self.gridx) then -- Parse GATE buttons
+		elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
 
-			-- Left to right on 8 width: 2, 4, 8
+			-- Left to right on 8 width: 1, 2, 4, 8
 			-- Left to right on 16 width: 1, 2, 4, 8, 16, 16, 16, etc
 
 			-- Get the new GATE value
-			local newgate = math.min(self.gridx, math.max(1, (2 ^ ((self.gridx + 1) - x)) / 2))
+			local newgate = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
 
 			-- If this is a down keystroke...
 			if flagbool then
 
-				-- Get the old GATE value, and see whether it mathes newgate
-				local oldgate = self.ctrlflags.gate
-				local gatematch = newgate == oldgate
+				-- Put the key's GATE value into the gateheld table
+				self.gateheld[x - 4] = newgate
 
-				-- Set this gate's gateheld entry to true
-				table.insert(self.gateheld, newgate)
+				-- Turn LEDs on and off, based on held-button activity
+				for i = 5, self.gridx do
+					sendLED(i - 1, self.gridy - 1, (self.gateheld[i - 4] and 1) or 0)
+				end
 
-				-- Set the global gate to false if the oldgate matches the newgate, since this is a toggle button, not a held-down button
-				self.ctrlflags.gate = ((not gatematch) and newgate) or false
+			else -- Else, if this is an up keystroke...
 
-				-- Turn LEDs on and off, based on toggle / new-button activity
-				if oldgate ~= newgate then
-					for i = 6, self.gridx do
-						local gatelight = ((x == i) and 1) or 0
-						sendLED(i - 1, self.gridy - 1, gatelight)
-					end
-				else
+				-- Remove the gate's gateheld entry
+				self.gateheld[x - 4] = nil
+
+				-- If any gatebuttons are still held, simply darken the released button
+				if next(self.gateheld) ~= nil then
 					sendLED(x - 1, self.gridy - 1, 0)
+				else -- Else, if no gatebuttons are held, revert to displaying the GATE counter
+					self:sendGateCountButtons()
 				end
 
-			else -- If this is an up keystroke, remove the gate's gateheld table entry
-				for k, v in pairs(self.gateheld) do
-					if v == newgate then
-						table.remove(self.gateheld, k)
-						break
-					end
-				end
 			end
+
+			-- Add together all held-down GATE values, ignoring duplicates, and bounded to grid width
+			self.ctrlflags.gate = false
+			local foundkeys = {}
+			for _, v in pairs(self.gateheld) do
+				if not foundkeys[v] then
+					self.ctrlflags.gate = (self.ctrlflags.gate or 0) + v
+				end
+				foundkeys[v] = true
+			end
+			self.ctrlflags.gate = self.ctrlflags.gate and math.min(self.gridx, self.ctrlflags.gate)
 
 		end
 
 		-- If this wasn't a GATE button, send the LED straightforwardly
-		if x < 6 then
+		if x < 5 then
 			sendLED(x - 1, self.gridy - 1, light)
 		end
 
-	end,
-
-	-- Parse an overview-button command from the Monome
-	parseOverviewButton = function(self, s)
-		if s == 1 then
-			self.overview = not self.overview
-			self:sendOverviewButton()
-			self:sendMetaGrid()
-		end
 	end,
 
 	-- Parse an incoming page-row command from the Monome
@@ -113,9 +104,11 @@ return {
 			-- If a GATE button is being held, give every seq in the page a GATE flag
 			local held = self.gateheld[#self.gateheld]
 			if held then
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
-					self.seq[i].incoming.gate = held
-					self:updateSeqButton(i)
+				if not self.ctrlflags.swap then
+					for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+						self.seq[i].incoming.gate = held
+						self:updateSeqButton(i) -- Reflect this keystroke in the on-screen GUI
+					end
 				end
 			end
 
@@ -135,34 +128,42 @@ return {
 
 			elseif self.ctrlflags.swap then -- Else, if SWAP is flagged...
 
-				-- Check whether the page is already within the pageswap table
-				local exists = false
-				for _, v in pairs(self.pageswap) do
+				-- If the page is already within the pageswap table, remove its old entry
+				for k, v in pairs(self.pageswap) do
 					if v == x then
-						exists = true
+						table.remove(self.pageswap, k)
 						break
 					end
 				end
 
-				-- If the page isn't in the pageswap table, insert it
-				if not exists then
-					table.insert(self.pageswap, x)
-				end
+				-- Insert the page into the pageswap table
+				table.insert(self.pageswap, x)
 
 				-- If the pageswap table has more than two entries, remove the oldest one
 				if #self.pageswap > 2 then
 					table.remove(self.pageswap, 1)
 				end
 
+				pd.post(table.concat(self.pageswap, " ")) -- debugging
+
 			end
 
 			-- If this is not being chorded with any command-buttons...
 			if not cmdflag then
-				self.page = x -- Tab to the selected page
-				self:sendPageRow()
+
+				-- If the page-button was double-clicked, toggle overview mode
+				if x == self.page then
+					self.overview = not self.overview
+				else -- Else, if the page button is new, tab out of overview mode and tab to the selected page
+					self.overview = false
+					self.page = x
+				end
+
+				self:sendPageRow() -- Send the row of page-buttons to the Monome
+
 			end
 			
-			self:sendMetaGrid() -- Send the sequence grid to the Monome, via the meta apparatus
+			self:sendMetaGrid() -- Send the sequence-grid to the Monome
 
 		end
 
@@ -264,6 +265,32 @@ return {
 			end
 		end
 	end,
+
+	-- Send the binary counting buttons for current tick position as related to GATE values
+	sendGateCountButtons = function(self)
+
+		-- Get the offset position of the last binary-counting button
+		local offset = 0
+		local multi = 1
+		while (multi * 2) <= self.gridx do
+			offset = offset + 1
+			multi = multi * 2
+		end
+
+		-- Based on tick position within the longest seq's bounds, display a binary value within the GATE buttons
+		local chunk = self.longticks / self.gridx
+		local cols = math.ceil(self.tick / chunk)
+		for i = 5 + offset, 5, -1 do
+			local igate = math.min(self.gridx, math.max(1, (2 ^ (i - 4)) / 2))
+			if (cols - igate) >= 0 then
+				sendLED(i - 1, self.gridy - 1, 1)
+				cols = cols - igate
+			else
+				sendLED(i - 1, self.gridy - 1, 0)
+			end
+		end
+
+	end,
 	
 	-- Refresh the sequence-buttons, in different ways depending on self.overview
 	sendMetaGrid = function(self)
@@ -274,7 +301,6 @@ return {
 			s = 0 -- Change overview-button to off
 			self:sendVisibleSeqRows()
 		end
-		sendLED(0, self.gridy - 1, s) -- Update the overview-button, to the left of the control-buttons
 	end,
 
 	-- Refresh a sequence's buttons, in different ways depending on self.overview
@@ -284,11 +310,6 @@ return {
 		else -- Not Overview Mode...
 			self:sendSeqRowIfVisible(s)
 		end
-	end,
-
-	-- Send the Monome LED state for the overview-mode's control-button
-	sendOverviewButton = function(self)
-		sendLED(0, self.gridy - 1, (self.overview and 1) or 0)
 	end,
 
 	-- Send all sequences to the Monome's buttons in overview mode
@@ -309,7 +330,7 @@ return {
 
 	-- Send the page-command row a new set of button data
 	sendPageRow = function(self)
-		self:sendSimpleRow(self.page - 1, self.gridy - 2)
+		self:sendSimpleRow(self.page - 1, self.gridy - 2, self.overview)
 	end,
 
 	-- Send the Monome button-data for a single visible sequence-row
@@ -332,10 +353,11 @@ return {
 
 	-- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
 	-- If xpoint is set to false, then a blank row is sent.
-	sendSimpleRow = function(self, xpoint, yrow)
+	sendSimpleRow = function(self, xpoint, yrow, invert)
+
+		invert = invert or false
 
 		local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
-		
 		if self.prefs.monome.osctype == 0 then
 			rowbytes = {yrow} -- If in MonomeSerial communications mode, remove the X-offset value from the rowbytes table so that the byte sequence is properly formed
 		end
@@ -343,14 +365,24 @@ return {
 		-- Generate a series of bytes, each holding the on-off values for an 8-button slice of the relevant row
 		for b = 0, self.gridx - 8, 8 do
 		
-			if (xpoint ~= false)
-			and rangeCheck(xpoint, b, b + 7)
-			then -- If the row contains a lit button, and that button is within this byte-slice, insert the corresponding bitwise on-value
-				table.insert(rowbytes, math.max(1, 2 ^ (xpoint - b)))
-			else -- Else, insert a byte corresponding to 8 darkened buttons
-				table.insert(rowbytes, 0)
+			local pbyte = (invert and 255) or 0
+
+			-- If an xpoint was given...
+			if xpoint then
+
+				-- If the xpoint is within this row-chunk, highlight it based on Overview Mode style
+				if rangeCheck(xpoint, b, b + 7) then
+					pbyte = 2 ^ (xpoint - b)
+					if invert then -- If the style is inverted, invert the byte
+						pbyte = 255 - pbyte
+					end
+				end
+
 			end
-		
+
+			-- Put the 8-button byte into the row-bytes table
+			table.insert(rowbytes, pbyte)
+
 		end
 		
 		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus

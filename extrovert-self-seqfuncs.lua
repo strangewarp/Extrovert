@@ -6,7 +6,15 @@ return {
 
 		-- Increment global tick, bounded by global gate-size
 		self.tick = (self.tick % self.longticks) + 1
-		
+
+		-- If the current tick is the first tick in a new column, update the GATE counting buttons
+		if (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
+		and (next(self.gateheld) == nil)
+		then
+			self:sendGateCountButtons()
+		end
+
+		-- Decay all currently-active sustains
 		self:decayAllSustains()
 
 		-- Send all regular commands within all sequences, and check against longseq
@@ -14,6 +22,7 @@ return {
 			self:iterateSequence(i)
 		end
 
+		-- Check for the currently longest loop among all of the active sequences
 		self:checkForLongestLoop()
 
 	end,
@@ -27,8 +36,21 @@ return {
 			-- If the sequence has an incoming GATE flag...
 			if self.seq[s].incoming.gate then
 
+				local curgate = math.ceil((self.tick / self.longticks) * self.gridx)
+				local longchunk = self.longticks / self.gridx
+				local tickmatch = (self.tick - 1) % longchunk
+				local gatematch = curgate % self.seq[s].incoming.gate
+
+				pd.post(
+					self.seq[s].incoming.gate .. " "
+					.. curgate .. " "
+					.. longchunk .. " "
+					.. tickmatch .. " "
+					.. gatematch
+				) -- debugging
+
 				-- If the global tick corresponds to the incoming GATE size, parse the seq's incoming flags
-				if ((self.tick - 1) % (self.longticks / self.seq[s].incoming.gate)) == 0 then
+				if (gatematch == 0) and (tickmatch == 0) then
 					self:parseIncomingFlags(s)
 				end
 
@@ -151,7 +173,6 @@ return {
 		if next(self.pageswap) ~= nil
 		and ((#self.pageswap) > 1)
 		then
-			pd.post("pageswap: " .. table.concat(self.pageswap, ", ")) -- debugging
 			for i = 1, self.gridy - 2 do
 				local s = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap - 1] - 1))
 				local s2 = i + ((self.gridy - 2) * (self.pageswap[#self.pageswap] - 1))
