@@ -36,7 +36,7 @@ return {
 			-- If the sequence has an incoming GATE flag...
 			if self.seq[s].incoming.gate then
 
-				local curgate = math.ceil((self.tick / self.longticks) * self.gridx)
+				local curgate = math.floor(self.gridx * (self.tick / self.longticks))
 				local longchunk = self.longticks / self.gridx
 				local tickmatch = (self.tick - 1) % longchunk
 				local gatematch = curgate % self.seq[s].incoming.gate

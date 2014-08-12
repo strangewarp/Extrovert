@@ -330,7 +330,11 @@ return {
 
 	-- Send the page-command row a new set of button data
 	sendPageRow = function(self)
-		self:sendSimpleRow(self.page - 1, self.gridy - 2, self.overview)
+		if self.overview then
+			self:sendSimpleRow(false, self.gridy - 2, true)
+		else
+			self:sendSimpleRow(self.page - 1, self.gridy - 2, false)
+		end
 	end,
 
 	-- Send the Monome button-data for a single visible sequence-row
