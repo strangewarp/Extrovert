@@ -36,20 +36,11 @@ return {
 			-- If the sequence has an incoming GATE flag...
 			if self.seq[s].incoming.gate then
 
+				-- If the global tick corresponds to the incoming GATE size, parse the seq's incoming flags
 				local curgate = math.floor(self.gridx * (self.tick / self.longticks))
 				local longchunk = self.longticks / self.gridx
 				local tickmatch = (self.tick - 1) % longchunk
 				local gatematch = curgate % self.seq[s].incoming.gate
-
-				pd.post(
-					self.seq[s].incoming.gate .. " "
-					.. curgate .. " "
-					.. longchunk .. " "
-					.. tickmatch .. " "
-					.. gatematch
-				) -- debugging
-
-				-- If the global tick corresponds to the incoming GATE size, parse the seq's incoming flags
 				if (gatematch == 0) and (tickmatch == 0) then
 					self:parseIncomingFlags(s)
 				end
@@ -109,29 +100,40 @@ return {
 		else -- Else, if there isn't an incoming OFF flag...
 		
 			self.seq[s].active = true -- Flag the sequence as active
-			
-			-- Get the boundaries; if only one boundary was received, set it as both low and high;
-			-- if low is greater than high, flip them; if no boundaries were received, set them to defaults.
-			local r = self.seq[s].incoming.range
-			self.seq[s].loop.low, self.seq[s].loop.high =
-				(r and math.min(r[#r - 1] or r[#r], r[#r])) or 1,
-				(r and math.max(r[#r - 1] or r[#r], r[#r])) or self.gridx
 
-			local chunksize = #self.seq[s].tick / self.gridx -- Calculate the size of each subsection
-			local bpoint = ((self.seq[s].loop.low - 1) * chunksize) + 1 -- Calculate the tick that corresponds to the incoming button-position
-			
+			-- If a RESUME command was not received...
+			if not self.seq[s].incoming.resume then
+			or (self.seq[s].incoming.resume and self.seq[s].incoming.range)
+			then
+
+				-- Get the boundaries; if only one boundary was received, set it as both low and high;
+				-- if low is greater than high, flip them; if no boundaries were received, set them to defaults.
+				local r = self.seq[s].incoming.range
+				self.seq[s].loop.low, self.seq[s].loop.high =
+					(r and math.min(r[#r - 1] or r[#r], r[#r])) or 1,
+					(r and math.max(r[#r - 1] or r[#r], r[#r])) or self.gridx
+
+			end
+
+			local chunk = #self.seq[s].tick / self.gridx
+			local button = self.seq[s].incoming.button
+			local point = self.seq[s].pointer or (((button - 1) * chunk) + 1)
+
 			-- If there's an incoming RESUME flag...
 			if self.seq[s].incoming.resume then
 
-				-- If the seq's old tick-pointer doesn't fall between the ticks corresponding to low/high, resume it on the low subsection. Otherwise leave it alone
-				if not rangeCheck(self.seq[s].pointer, ((self.seq[s].loop.low - 1) * chunksize) + 1, (self.seq[s].loop.high - 1) * chunksize) then
-					self.seq[s].pointer = ((self.seq[s].pointer - 1) % chunksize) + bpoint -- Transpose the previous pointer position into the incoming button's subsection
-				end
+				local low = self.seq[s].loop.low
+				local high = self.seq[s].loop.high
+				local col = button or math.ceil(self.seq[s].pointer / self.gridx)
+				local range = high - (low - 1)
+
+				-- Transpose the previous pointer position into the incoming button's subsection
+				self.seq[s].pointer = ((point - 1) % chunk) + ((((col - low) % range) + low - 1) * chunk) + 1
 
 			else -- Else, change the pointer position to reflect the button-press position
 
-				if self.seq[s].incoming.button then
-					self.seq[s].pointer = (chunksize * (self.seq[s].incoming.button - 1)) + 1
+				if button then
+					self.seq[s].pointer = point
 				end
 
 			end
