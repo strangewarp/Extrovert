@@ -102,7 +102,7 @@ return {
 			self.seq[s].active = true -- Flag the sequence as active
 
 			-- If a RESUME command was not received...
-			if not self.seq[s].incoming.resume then
+			if (not self.seq[s].incoming.resume)
 			or (self.seq[s].incoming.resume and self.seq[s].incoming.range)
 			then
 
