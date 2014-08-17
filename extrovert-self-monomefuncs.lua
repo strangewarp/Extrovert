@@ -40,44 +40,26 @@ return {
 			-- Left to right on 8 width: 1, 2, 4, 8
 			-- Left to right on 16 width: 1, 2, 4, 8, 16, 16, 16, etc
 
-			-- Get the new GATE value
-			local newgate = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
-
 			-- If this is a down keystroke...
 			if flagbool then
 
-				-- Put the key's GATE value into the gateheld table
-				self.gateheld[x - 4] = newgate
+				-- Set the GATE command to the corresponding value
+				self.ctrlflags.gate = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
 
-				-- Turn LEDs on and off, based on held-button activity
+				-- Turn LEDs on and off, based on which button is held
 				for i = 5, self.gridx do
-					sendLED(i - 1, self.gridy - 1, (self.gateheld[i - 4] and 1) or 0)
+					sendLED(i - 1, self.gridy - 1, ((x == i) and 1) or 0)
 				end
 
 			else -- Else, if this is an up keystroke...
 
-				-- Remove the gate's gateheld entry
-				self.gateheld[x - 4] = nil
+				-- Unset the GATE value
+				self.ctrlflags.gate = false
 
-				-- If any gatebuttons are still held, simply darken the released button
-				if next(self.gateheld) ~= nil then
-					sendLED(x - 1, self.gridy - 1, 0)
-				else -- Else, if no gatebuttons are held, revert to displaying the GATE counter
-					self:sendGateCountButtons()
-				end
+				-- Revert to displaying the GATE counter
+				self:sendGateCountButtons()
 
 			end
-
-			-- Add together all held-down GATE values, ignoring duplicates, and bounded to grid width
-			self.ctrlflags.gate = false
-			local foundkeys = {}
-			for _, v in pairs(self.gateheld) do
-				if not foundkeys[v] then
-					self.ctrlflags.gate = (self.ctrlflags.gate or 0) + v
-				end
-				foundkeys[v] = true
-			end
-			self.ctrlflags.gate = self.ctrlflags.gate and math.min(self.gridx, self.ctrlflags.gate)
 
 		end
 
@@ -96,33 +78,30 @@ return {
 			-- If any command-buttons are being pressed, set cmdflag to true
 			local cmdflag = false
 			for k, v in pairs(self.ctrlflags) do
-				if v and (k ~= 'gate') then
+				if v then
 					cmdflag = true
 				end
 			end
 
 			-- If a GATE button is being held, give every seq in the page a GATE flag
-			local held = self.gateheld[#self.gateheld]
-			if held then
-				if not self.ctrlflags.swap then
-					for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
-						self.seq[i].incoming.gate = held
-						self:updateSeqButton(i) -- Reflect this keystroke in the on-screen GUI
-					end
+			if self.ctrlflags.gate then
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
+					self.seq[i].incoming.gate = self.ctrlflags.gate
+					self:updateSeqButton(i) -- Reflect this keystroke in the on-screen GUI
 				end
 			end
 
 			if self.ctrlflags.off then -- If OFF is flagged...
 
 				-- Give every seq in the page an OFF flag
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
 					self.seq[i].incoming.off = true
 				end
 
 			elseif self.ctrlflags.resume then -- Else, if RESUME is flagged...
 
 				-- Give every seq in the page a RESUME flag
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 1) * x do
+				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
 					self.seq[i].incoming.resume = true
 				end
 

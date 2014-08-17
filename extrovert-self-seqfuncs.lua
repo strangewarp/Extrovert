@@ -7,9 +7,9 @@ return {
 		-- Increment global tick, bounded by global gate-size
 		self.tick = (self.tick % self.longticks) + 1
 
-		-- If the current tick is the first tick in a new column, update the GATE counting buttons
-		if (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
-		and (next(self.gateheld) == nil)
+		-- If the GATE button isn't held, and the current tick is the first tick in a new column, update the GATE counting buttons
+		if (not self.ctrlflags.gate)
+		and (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
 		then
 			self:sendGateCountButtons()
 		end
@@ -101,7 +101,7 @@ return {
 		
 			self.seq[s].active = true -- Flag the sequence as active
 
-			-- If a RESUME command was not received...
+			-- If a RESUME command was not received, or both RESUME and RANGE commands were received...
 			if (not self.seq[s].incoming.resume)
 			or (self.seq[s].incoming.resume and self.seq[s].incoming.range)
 			then
@@ -165,6 +165,8 @@ return {
 		self.seq[s1].pointer, self.seq[s2].pointer =
 			math.floor(self.seq[s2].pointer / (#self.seq[s2].tick / #self.seq[s1].tick)),
 			math.floor(self.seq[s1].pointer / (#self.seq[s1].tick / #self.seq[s2].tick))
+
+		pd.post(s1..", "..s2) -- debugging
 
 	end,
 

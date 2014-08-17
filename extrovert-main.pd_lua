@@ -84,8 +84,6 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 
-	self.gateheld = {} -- Holds the GATE values that are presently active
-
 	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
 	self.longseq = nil -- Sequence with the longest active loop
 	self.longticks = self.gatedefault -- Number of ticks in the longest active loop
