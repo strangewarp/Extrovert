@@ -101,14 +101,14 @@ return {
 		local outname = "extrovert-seq-" .. k
 		local outcolor = self.color[9][1]
 		
-		if self.seq[k].active then
-			if next(self.seq[k].incoming) ~= nil then -- If the sequence is active AND has incoming commands, change to an active-and-pending-color
-				outcolor = self.color[8][3]
-			else -- If the sequence is active AND has no incoming commands, change to an active-color
+		if self.seq[k].pointer then
+			if self.seq[k].incoming.cmd then -- If the sequence is active AND has incoming commands, change to an active-and-pending-color
+				outcolor = self.color[6][2]
+			else -- If the sequence is active AND has NO incoming commands, change to an active-color
 				outcolor = self.color[8][1]
 			end
-		elseif next(self.seq[k].incoming) ~= nil then -- If the sequence has incoming commands AND is not active, change to a pending-color
-			outcolor = self.color[6][1]
+		elseif self.seq[k].incoming.cmd then -- If the sequence has incoming commands AND is NOT active, change to a pending-color
+			outcolor = self.color[7][1]
 		end
 		
 		pd.send("extrovert-color-out", "list", rgbOutList(outname, outcolor, outcolor))

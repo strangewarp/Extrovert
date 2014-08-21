@@ -8,6 +8,7 @@ local guifuncs = require('extrovert-guifuncs')
 local monomefuncs = require('extrovert-monomefuncs')
 
 local selfapifuncs = require('extrovert-self-apifuncs')
+local selfctrlfuncs = require('extrovert-self-ctrlfuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
 local selflongfuncs = require('extrovert-self-longfuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
@@ -37,6 +38,7 @@ function Extrovert:initialize(sel, atoms)
 	self.outlets = 0
 	
 	funcsToNewContext(selfapifuncs, Extrovert)
+	funcsToNewContext(selfctrlfuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
 	funcsToNewContext(selflongfuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
@@ -51,7 +53,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.ctrlflags = { -- Holds all control-flags, which correspond to the control-buttons on the Monome
 		off = false,
-		resume = false,
+		trig = false,
 		loop = false,
 		swap = false,
 		gate = false, -- Gating commands fill the rest of the control-row. This will hold a number to differentiate between them, or false when not active
@@ -102,8 +104,8 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
 
-	self.swap = {} -- Holds all sequence-pairs whose activity will be swapped
-	self.pageswap = {} -- Holds the page-numbers whose sub-sequences will be swapped
+	self.swap = false -- Holds the index of a swap-seq selected by the SWAP command
+	self.pageswap = false -- Holds the index of a page-number selected by the SWAP command
 	
 	self.seq = {} -- Holds all MIDI sequence data, and all sequences' performance-related flags
 	

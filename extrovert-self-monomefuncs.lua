@@ -22,15 +22,19 @@ return {
 		local light = 1 -- Stays set to 1 if the button is to be lit; else will be set to 0
 		local flagbool = true -- Sets flags to true if the key is pressed; sets them to false if they are unpressed
 		
-		if s == 0 then -- On down-keystrokes...
+		if s == 0 then -- On up-keystrokes...
 			light = 0 -- The button will be darkened
 			flagbool = false -- The flag will be set to false
 		end
 		
+		-- Empty swap and pageswap storage on any upstroke or downstroke
+		self.swap = false
+		self.pageswap = false
+
 		if x == 1 then -- Parse OFF button
 			self.ctrlflags.off = flagbool
-		elseif x == 2 then -- Parse RESUME button
-			self.ctrlflags.resume = flagbool
+		elseif x == 2 then -- Parse RETRIG button
+			self.ctrlflags.trig = flagbool
 		elseif x == 3 then -- Parse LOOP button
 			self.ctrlflags.loop = flagbool
 		elseif x == 4 then -- Parse SWAP button
@@ -75,74 +79,47 @@ return {
 
 		if s == 1 then -- On down-keystrokes...
 
-			-- If any command-buttons are being pressed, set cmdflag to true
-			local cmdflag = false
-			for k, v in pairs(self.ctrlflags) do
-				if v then
-					cmdflag = true
-				end
-			end
+			if self.ctrlflags.off then -- If OFF is held...
 
-			-- If a GATE button is being held, give every seq in the page a GATE flag
-			if self.ctrlflags.gate then
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
-					self.seq[i].incoming.gate = self.ctrlflags.gate
-					self:updateSeqButton(i) -- Reflect this keystroke in the on-screen GUI
-				end
-			end
-
-			if self.ctrlflags.off then -- If OFF is flagged...
-
-				-- Give every seq in the page an OFF flag
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
-					self.seq[i].incoming.off = true
+				-- If GATE is also held, send PAGE-GATE-OFF command. Else send PAGE-OFF command.
+				if self.ctrlflags.gate then
+					self:ctrlPageGateOff(x)
+				else
+					self:ctrlPageOff(x)
 				end
 
-			elseif self.ctrlflags.resume then -- Else, if RESUME is flagged...
+			elseif self.ctrlflags.swap then -- If OFF is not held, but SWAP is held...
 
-				-- Give every seq in the page a RESUME flag
-				for i = ((self.gridy - 2) * (x - 1)) + 1, (self.gridy - 2) * x do
-					self.seq[i].incoming.resume = true
+				-- If GATE is also held, send PAGE-GATE-SWAP command. Else send PAGE-SWAP command.
+				if self.ctrlflags.gate then
+					self:ctrlPageGateSwap(x)
+				else
+					self:ctrlPageSwap(x)
 				end
 
-			elseif self.ctrlflags.swap then -- Else, if SWAP is flagged...
+			elseif self.ctrlflags.gate then -- If neither OFF nor SWAP is held, but GATE is held, then send PAGE-GATE command.
 
-				-- If the page is already within the pageswap table, remove its old entry
-				for k, v in pairs(self.pageswap) do
-					if v == x then
-						table.remove(self.pageswap, k)
-						break
-					end
-				end
+				self:ctrlPageGate(x)
 
-				-- Insert the page into the pageswap table
-				table.insert(self.pageswap, x)
+			else -- If neither OFF, SWAP, nor GATE are held...
 
-				-- If the pageswap table has more than two entries, remove the oldest one
-				if #self.pageswap > 2 then
-					table.remove(self.pageswap, 1)
-				end
-
-				pd.post(table.concat(self.pageswap, " ")) -- debugging
-
-			end
-
-			-- If this is not being chorded with any command-buttons...
-			if not cmdflag then
-
-				-- If the page-button was double-clicked, toggle overview mode
-				if x == self.page then
+				-- If the page was double-clicked, tab into overview mode. Else, set overview mode to false, and tab to the given page.
+				if self.page == x then
 					self.overview = not self.overview
-				else -- Else, if the page button is new, tab out of overview mode and tab to the selected page
+				else
 					self.overview = false
 					self.page = x
 				end
 
-				self:sendPageRow() -- Send the row of page-buttons to the Monome
+				self:sendPageRow() -- Send the page-row butons to the Monome.
 
 			end
-			
-			self:sendMetaGrid() -- Send the sequence-grid to the Monome
+
+			self:sendMetaGrid() -- Send the seq-rows to the Monome, for any mode.
+
+			if self.ctrlflags.gate then
+				self:updateSeqPage(x) -- Update on-screen GUI to reflect pending GATE
+			end
 
 		end
 
@@ -165,72 +142,30 @@ return {
 			snum = y + ((self.page - 1) * (self.gridy - 2)) -- Convert y row, and page value, into a sequence-key
 			col = x -- Match the col-value to the column of the button that has been pressed
 		end
-		
-		-- If GATE is flagged, set incoming gate
+
+		-- If GATE is held, apply the globl gate-value to the sequence
 		if self.ctrlflags.gate then
-			self.seq[snum].incoming.gate = self.ctrlflags.gate
-			self:updateSeqButton(snum) -- Reflect this keystroke in the on-screen GUI
+			self:ctrlGate(snum)
 		end
 
-		-- If OFF is flagged, set incoming deactivation
-		if self.ctrlflags.off then
-
-			self.seq[snum].incoming.off = true
-
-		else -- Else, if OFF isn't flagged...
-
-			-- If RESUME is flagged, set seq to resume from previous position
-			if self.ctrlflags.resume then
-				self.seq[snum].incoming.resume = true
+		if self.ctrlflags.off then -- If OFF is held, send PRESS-OFF command.
+			self:ctrlPressOff(snum)
+		elseif self.ctrlflags.trig then -- Else if TRIG is held, send PRESS-TRIG command.
+			self:ctrlPressTrig(snum, col)
+		elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
+			self:ctrlPressSwap(snum)
+		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
+			self:ctrlPressLoop(snum, col)
+		else -- Else, if no control-buttons are held (aside from GATE, optionally), send a PRESS command.
+			if self.ctrlflags.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
+				self:ctrlPressTrig(snum, col)
+			else -- Else, if GATE isn't held, send a regular PRESS command
+				self:ctrlPress(snum, col)
 			end
-
-			-- If LOOP is flagged, set one of the seq's loop points
-			if self.ctrlflags.loop then
-
-				-- If incoming.range is nil, build it
-				self.seq[snum].incoming.range = self.seq[snum].incoming.range or {}
-
-				-- Insert the column value into the target sequence's range-button table
-				table.insert(self.seq[snum].incoming.range, col)
-
-				-- If the number of incoming loop-bounds is more than 2, remove the oldest one
-				if #self.seq[snum].incoming.range > 2 then
-					table.remove(self.seq[snum].incoming.range, 1)
-				end
-
-			end
-
-			-- If SWAP is flagged, table the sequence for swapping
-			if self.ctrlflags.swap then
-
-				-- If no swap-pairs already exist, or the active swap-pair is full, insert a new-swap pair
-				if (next(self.swap) == nil)
-				or (#self.swap[#self.swap] == 2)
-				then
-					table.insert(self.swap, {})
-				end
-
-				-- Put the sequence into the top swap-pair
-				table.insert(self.swap[#self.swap], snum)
-
-			end
-
 		end
 
-		-- If not in SWAP-mode...
-		if not self.ctrlflags.swap then
-
-			-- Set the incoming button to the given subsection-button
-			self.seq[snum].incoming.button = x
-
-			-- If the sequence isn't already active...
-			if not self.seq[snum].active then
-
-				-- Show that the sequence was newly activated, and that it should therefore be treated slightly differently on its first tick
-				self.seq[snum].incoming.activated = true
-
-			end
-
+		if self.ctrlflags.gate then
+			self:updateSeqButton(snum) -- Update on-screen GUI to reflect pending GATE
 		end
 
 	end,
@@ -319,12 +254,8 @@ return {
 	-- Send the Monome button-data for a single visible sequence-row
 	sendSeqRow = function(self, s)
 		local yrow = (s - 1) % (self.gridy - 2)
-		if self.seq[s].active then -- Send a row wherein the sequence's active subsection-button is brightened
-			local subpoint = math.ceil(self.seq[s].pointer / (#self.seq[s].tick / self.gridx)) - 1
-			self:sendSimpleRow(subpoint, yrow)
-		else -- Send a darkened sequence-row
-			self:sendSimpleRow(false, yrow)
-		end
+		local subpoint = self.seq[s].pointer and (math.ceil(self.seq[s].pointer / (#self.seq[s].tick / self.gridx)) - 1)
+		self:sendSimpleRow(subpoint, yrow)
 	end,
 
 	-- Check whether a single sequence-row would be visible, before sending its Monome button-data

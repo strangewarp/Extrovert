@@ -189,15 +189,17 @@ return {
 
 		self.seq[i] = {}
 		
-		self.seq[i].pointer = 1
-		self.seq[i].active = false
+		self.seq[i].pointer = false
 		
 		self.seq[i].loop = {
-			low = 1,
-			high = self.gridx,
+			low = false,
+			high = false,
 		}
 		
-		self.seq[i].incoming = {} -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
+		self.seq[i].incoming = { -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
+			cmd = false,
+			gate = false,
+		}
 		
 		self.seq[i].tick = {}
 		for t = 1, self.gridx do -- Insert dummy ticks

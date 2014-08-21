@@ -13,12 +13,12 @@ return {
 			local s = self.seq[num]
 
 			-- If the sequence is active...
-			if s.active then
+			if s.pointer then
 
-				-- If the sequence is longer than longticks, make itinto the new longseq
+				-- If the sequence is longer than longticks, make it into the new longseq
 				local t = #s.tick
 				if t > self.longticks then
-					self.tick = s.pointer - ((t / self.gridx) * (s.loop.low - 1))
+					self.tick = s.pointer - ((t / self.gridx) * ((s.loop.low or 1) - 1))
 					self.longseq = num
 					self.longticks = t
 					changed = true
@@ -42,8 +42,12 @@ return {
 
 		-- If the longseq is still unset after a full search, set longticks to the previous value, or the default value
 		if self.longseq == nil then
-			self.longticks = oldticks or self.gatedefault
-			changed = true
+			if oldticks then
+				self.longticks = oldticks
+			else
+				self.longticks = self.gatedefault
+				changed = true
+			end
 		end
 
 		-- If this is the outermost recursion of longticks checking, and longticks was changed, update the gate-counting display
