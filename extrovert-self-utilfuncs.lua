@@ -18,7 +18,9 @@ return {
 		-- Try to open the MIDI file
 		local midifile = io.open(fileloc, 'r')
 		if midifile ~= nil then
+			pd.post("DYE 1") -- debugging
 			score = MIDI.midi2score(midifile:read('*all'))
+			pd.post("DYE 2") -- debugging
 			midifile:close()
 			stats = MIDI.score2stats(score)
 			tpq = table.remove(score, 1)
@@ -114,6 +116,12 @@ return {
 		-- Set BPM and TPQ to their respective first captured values, or defaults if no values were captured
 		self.bpm = bpm or 120
 		self.tpq = tpq or 24
+
+		-- Reset global tick and longticks, for gating purposes
+		self.tick = 1
+		self.longchanged = false
+		self.longseq = nil
+		self.longticks = self.gatedefault
 		
 		pd.post("Loaded savefile \"" .. self.hotseats[self.activeseat] .. "\"!")
 		pd.post("Beats Per Minute: " .. self.bpm)

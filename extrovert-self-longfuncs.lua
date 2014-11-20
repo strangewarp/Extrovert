@@ -2,10 +2,12 @@
 return {
 
 	-- Check all sequences against longest-seq data
-	checkForLongestLoop = function(self, oldticks, depth)
+	checkForLongestLoop = function(self)
 
-		depth = depth or 0
-		local changed = false
+		local oldticks = self.longticks
+		local flagoff = false
+		local totals = {}
+		local long = 0
 
 		-- For every sequence...
 		for num = 1, #self.seq do
@@ -15,44 +17,39 @@ return {
 			-- If the sequence is active...
 			if s.pointer then
 
-				-- If the sequence is longer than longticks, make it into the new longseq
-				local t = #s.tick
-				if t > self.longticks then
-					self.tick = s.pointer - ((t / self.gridx) * ((s.loop.low or 1) - 1))
-					self.longseq = num
-					self.longticks = t
-					changed = true
+				-- At least one sequence has been activated, so set longchanged to true
+				self.longchanged = true
+
+				-- Index the sequence's key by its number of ticks
+				local ticks = #s.tick
+				totals[ticks] = totals[ticks] or {}
+				table.insert(totals[ticks], num)
+
+				-- Save the longest found ticks value
+				if ticks > long then
+					long = ticks
 				end
 
 			else -- Else, if the sequence isn't active...
 
-				-- If the inactive sequence is longseq, set longseq to nil, and start another search
+				-- If the inactive sequence is longseq, flag a change
 				if self.longseq == num then
-					local ot = self.longticks
-					self.longticks = 1
-					self.longseq = nil
-					self:checkForLongestLoop(ot, depth + 1)
-					changed = true
-					break
+					flagoff = true
 				end
 
 			end
 
 		end
 
-		-- If the longseq is still unset after a full search, set longticks to the previous value, or the default value
-		if self.longseq == nil then
-			if oldticks then
-				self.longticks = oldticks
-			else
-				self.longticks = self.gatedefault
-				changed = true
-			end
-		end
-
-		-- If this is the outermost recursion of longticks checking, and longticks was changed, update the gate-counting display
-		if (depth == 0) and changed then
-			self:sendGateCountButtons()
+		-- If the longseq hasn't been changed from the default value, or is longer than longticks, or has been turned off, then set a new longseq.
+		-- Note: if two seqs of the same long tick-value are triggered at once, then the pointer-position of the lowest-keyed seq takes precedence.
+		if (not self.longchanged) or (long > self.longticks) or flagoff then
+			local s = totals[long][1]
+			local t = #s.tick
+			self.tick = s.pointer - ((t / self.gridx) * ((s.loop.low or 1) - 1))
+			self.longseq = s
+			self.longticks = long
+			self.longchanged = true
 		end
 
 	end,

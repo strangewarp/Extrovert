@@ -45,7 +45,7 @@ return {
 		end
 
 		-- Check for the currently longest loop among all of the active sequences
-		self:checkForLongestLoop(self.longticks)
+		self:checkForLongestLoop()
 
 	end,
 

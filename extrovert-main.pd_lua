@@ -89,6 +89,7 @@ function Extrovert:initialize(sel, atoms)
 	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
 	self.longseq = nil -- Sequence with the longest active loop
 	self.longticks = self.gatedefault -- Number of ticks in the longest active loop
+	self.longchanged = false -- Toggled to true if the gatedefault-longticks amount has been overwritten
 	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
