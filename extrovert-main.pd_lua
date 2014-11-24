@@ -7,10 +7,8 @@ local generalfuncs = require('extrovert-generalfuncs')
 local guifuncs = require('extrovert-guifuncs')
 local monomefuncs = require('extrovert-monomefuncs')
 
-local selfapifuncs = require('extrovert-self-apifuncs')
 local selfctrlfuncs = require('extrovert-self-ctrlfuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
-local selflongfuncs = require('extrovert-self-longfuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
 local selfmonomefuncs = require('extrovert-self-monomefuncs')
 local selfnotefuncs = require('extrovert-self-notefuncs')
@@ -31,16 +29,13 @@ function Extrovert:initialize(sel, atoms)
 	-- 3. Monome button
 	-- 4. Monome ADC
 	-- 5. MIDI CLOCK IN
-	-- 6. External OSC commands (non-Monome)
-	self.inlets = 6
+	self.inlets = 5
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
 	
-	funcsToNewContext(selfapifuncs, Extrovert)
 	funcsToNewContext(selfctrlfuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
-	funcsToNewContext(selflongfuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
 	funcsToNewContext(selfmonomefuncs, Extrovert)
 	funcsToNewContext(selfnotefuncs, Extrovert)
@@ -61,7 +56,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.commands = self.prefs.commands -- Get the user-defined list of computer-keychord commands
 	
-	self.savepath = self.prefs.dirs.saves -- User-defined absolute path that contains all savefolders
+	self.savepath = self.prefs.dirs.saves -- User-defined absolute path that contains all savefiles
 	if self.savepath:sub(-1) ~= "/" then
 		self.savepath = self.savepath .. "/"
 	end
@@ -86,10 +81,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 
-	self.gatedefault = self.prefs.seq.gatedefault -- Holds the number of ticks that will elapse between gates, when no sequences are active
-	self.longseq = nil -- Sequence with the longest active loop
-	self.longticks = self.gatedefault -- Number of ticks in the longest active loop
-	self.longchanged = false -- Toggled to true if the gatedefault-longticks amount has been overwritten
+	self.longticks = 192 -- Number of ticks in the longest active loop
 	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
@@ -148,8 +140,6 @@ function Extrovert:in_1_bang()
 	
 	self:startTempo()
 
-	self:startAPI()
-	
 	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a page-button keypress, so that a page is properly active
 	self:parseVirtualButtonPress(1, self.gridy - 1) -- Spoof a second page-button keypress, so Overview Mode is untoggled
 
@@ -228,78 +218,12 @@ function Extrovert:in_4_list(t)
 
 end
 
--- Parse incoming tempo ticks or MIDI CLOCK commands
+-- Parse incoming tempo ticks
 function Extrovert:in_5(sel, m)
 
-	if sel == "bang" then -- Accept [metro]-based tempo ticks
+	self:iterateAllSequences()
 	
-		if self.clocktype == "master" then
-			pd.send("extrovert-clock-out", "float", {248})
-		end
-
-		self:iterateAllSequences()
-	
-	elseif sel == "float" then -- Accept MIDI CLOCK tempo commands
-	
-		if self.byteignore > 0 then -- If incoming bytes are slated to be ignored...
-		
-			self.byteignore = self.byteignore - 1 -- Decrement the number of bytes to be ignored, after receiving one
-
-		elseif m == 242 then -- MIDI SONG POSITION
-		
-			self.tick = 0
-			self.byteignore = 2
-	
-		elseif m == 248 then -- MIDI CLOCK PULSE
-		
-			if self.tick == 0 then -- Compensate for the initial dummy tick
-				self.tick = 1
-			else -- Accept regular clock ticks
-				
-				self:iterateAllSequences()
-			
-			end
-		
-		elseif m == 250 then -- MIDI CLOCK START
-		
-			if not self.acceptpulse then
-				self.tick = 0 -- Set tick to 0 instead of 1, in order to compensate for the initial dummy downbeat
-				self.acceptpulse = true
-			end
-			
-			pd.post("Received MIDI CLOCK START")
-			
-		elseif m == 251 then -- MIDI CLOCK CONTINUE
-		
-			if not self.acceptpulse then
-				self.acceptpulse = true
-			end
-			
-			pd.post("Received MIDI CLOCK CONTINUE")
-		
-		elseif m == 252 then -- MIDI CLOCK END
-		
-			if self.acceptpulse then
-				self.acceptpulse = false
-			end
-			
-			pd.post("Received MIDI CLOCK END")
-		
-		end
-		
-		if self.clocktype == "thru" then -- Send the MIDI CLOCK messages onward, if the clocktype is set to THRU
-			pd.send("extrovert-clock-out", "float", {m})
-		end
-		
-	end
-	
-end
-
--- Parse and execute external OSC commands, from external MIDI editor programs designed to work alongside Extrovert
-function Extrovert:in_6_list(t)
-
-	pd.post("Received Extrovert-OSC command: " .. table.concat(t, ", "))
-
-	self:parseOSC(t)
+	-- Send an outgoing MIDI CLOCK tick, which will only leave Extrovert if "master" mode is toggled
+	pd.send("extrovert-sync-out", "float", {248})
 
 end

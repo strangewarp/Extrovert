@@ -44,8 +44,23 @@ return {
 			self:iterateSequence(i)
 		end
 
-		-- Check for the currently longest loop among all of the active sequences
-		self:checkForLongestLoop()
+		-- If we are on a Song Pointer-equivalent tick, send a Song Pointer command
+		local tpqhalf = self.tpq / 2
+		local tminus = self.tick - 1
+		local halfclean = tpqhalf == math.floor(tpqhalf)
+		if (halfclean and ((tminus % tpqhalf) == 0))
+		or ((not halfclean) and ((tminus % self.tpq) == 0))
+		then
+			local spoint = roundNum(tminus / tpqhalf, 0)
+			local b1 = spoint % 128
+			local b2 = math.floor(spoint / 256)
+			pd.send("extrovert-sync-out", "float", {252})
+			pd.send("extrovert-sync-out", "float", {242})
+			pd.send("extrovert-sync-out", "float", {b1})
+			pd.send("extrovert-sync-out", "float", {b2})
+			pd.send("extrovert-sync-out", "float", {251})
+			pd.send("extrovert-sync-out", "float", {248})
+		end
 
 	end,
 

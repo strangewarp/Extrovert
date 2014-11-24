@@ -83,20 +83,13 @@ return {
 	
 	},
 	
-	seq = {
-	
-		gatedefault = 192, -- Gating constant, in ticks. Controls how many MIDI ticks will pass between gates, when no sequences are active.
-	
-	},
-	
 	midi = {
 	
-		clocktype = "none", -- MIDI CLOCK type ... "master" / "slave" / "thru" / "none" ... Both "master" and "none" will cause Extrovert to generate its own tempo.
+		-- MIDI CLOCK type ... "master" / "none"
+		-- A setting of "master" will cause Extrovert to generate outgoing MIDI CLOCK ticks,
+		-- and MIDI SONG POSITION pointers, synced to the length of the first track in a given loaded MIDI file.
+		clocktype = "master",
 	
-	},
-	
-	api = {
-		port = 8500, -- Port on which Extrovert listens for commands from any related MIDI-editor programs.
 	},
 	
 	gui = {

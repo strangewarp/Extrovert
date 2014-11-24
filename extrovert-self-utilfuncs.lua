@@ -119,9 +119,7 @@ return {
 
 		-- Reset global tick and longticks, for gating purposes
 		self.tick = 1
-		self.longchanged = false
-		self.longseq = nil
-		self.longticks = self.gatedefault
+		self.longticks = ((self.seq[1] ~= nil) and #self.seq[1].tick) or 192
 		
 		pd.post("Loaded savefile \"" .. self.hotseats[self.activeseat] .. "\"!")
 		pd.post("Beats Per Minute: " .. self.bpm)
