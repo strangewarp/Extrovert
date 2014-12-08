@@ -2,13 +2,13 @@ return {
 
 	hotseats = { -- Savefile hotseats, which can be called with simple key combinations, to quickly switch between songs during performance
 	
-		"default1",
+		"hexaburst",
 		"test",
-		"rentest",
-		"default",
-		"default",
+		"test",
+		"test",
+		"test",
 
-		"default",
+		"test",
 		"default",
 		"default",
 		"default",
@@ -80,15 +80,6 @@ return {
 			},
 		
 		},
-	
-	},
-	
-	midi = {
-	
-		-- MIDI CLOCK type ... "master" / "none"
-		-- A setting of "master" will cause Extrovert to generate outgoing MIDI CLOCK ticks,
-		-- and MIDI SONG POSITION pointers, synced to the length of the first track in a given loaded MIDI file.
-		clocktype = "master",
 	
 	},
 	

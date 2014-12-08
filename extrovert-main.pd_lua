@@ -28,7 +28,7 @@ function Extrovert:initialize(sel, atoms)
 	-- 2. Key commands
 	-- 3. Monome button
 	-- 4. Monome ADC
-	-- 5. MIDI CLOCK IN
+	-- 5. Metronome-ticks in
 	self.inlets = 5
 	
 	-- No outlets. Everything is done through pd.send() instead.
@@ -88,9 +88,6 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.overview = false -- Tracks whether Overview Mode is toggled or not. Causes changes to the Monome display, and to keypress behaviors
 	
-	self.clocktype = self.prefs.midi.clocktype -- User-defined MIDI CLOCK type.
-	self.acceptpulse = false -- Tracks whether to accept MIDI CLOCK pulses
-	
 	self.byteignore = 0 -- Tracks how many inoming raw MIDI bytes to ignore, during the reception of MIDI SONG POSITION commands
 	
 	self.tick = 1 -- Current clock tick in the sequencer
@@ -133,8 +130,6 @@ function Extrovert:in_1_bang()
 	self:populateGUI()
 	
 	self:startMonome()
-	
-	self:startClock()
 	
 	self:propagateBPM()
 	
@@ -223,7 +218,4 @@ function Extrovert:in_5(sel, m)
 
 	self:iterateAllSequences()
 	
-	-- Send an outgoing MIDI CLOCK tick, which will only leave Extrovert if "master" mode is toggled
-	pd.send("extrovert-sync-out", "float", {248})
-
 end

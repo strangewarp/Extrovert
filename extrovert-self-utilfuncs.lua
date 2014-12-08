@@ -18,9 +18,7 @@ return {
 		-- Try to open the MIDI file
 		local midifile = io.open(fileloc, 'r')
 		if midifile ~= nil then
-			pd.post("DYE 1") -- debugging
 			score = MIDI.midi2score(midifile:read('*all'))
-			pd.post("DYE 2") -- debugging
 			midifile:close()
 			stats = MIDI.score2stats(score)
 			tpq = table.remove(score, 1)

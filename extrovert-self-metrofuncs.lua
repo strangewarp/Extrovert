@@ -17,17 +17,4 @@ return {
 		pd.send("extrovert-metro-speed", "float", {ms})
 	end,
 
-	-- Initialize Extrovert's Puredata tempo apparatus
-	startClock = function(self)
-
-		if (self.clocktype == "master") then
-			pd.send("extrovert-clock-type", "float", {1})
-		else
-			pd.send("extrovert-clock-type", "float", {2})
-		end
-		
-		pd.post("Initialized clock type")
-		
-	end,
-
 }
