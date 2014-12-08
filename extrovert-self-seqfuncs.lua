@@ -50,6 +50,7 @@ return {
 	iterateSequence = function(self, s)
 
 		local ticks = #self.seq[s].tick
+		local chunk = ticks / self.gridx
 
 		-- Get the current column, or false if there is no active pointer, for later comparison
 		local oldcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
@@ -61,13 +62,11 @@ return {
 			self.seq[s].incoming.gate = false
 
 			-- If any commands are set...
-			if self.seq[s].incoming.cmd ~= false then
+			if self.seq[s].incoming.cmd then
 
 				-- Parse the sequence's incoming command
-				pd.post(c)--debugging
 				local c = table.remove(self.seq[s].incoming.cmd, 1)
 				local args = self.seq[s].incoming.cmd
-				pd.post(c .. ": " .. table.concat(args, " ")) -- debugging
 				self[c](self, unpack(args))
 
 				-- Set the seq's incoming-command to false
@@ -81,8 +80,21 @@ return {
 
 		-- If, after the previous changes, the sequence still has an active pointer, then iterate a tick's worth of the sequence
 		if self.seq[s].pointer then
+
 			self:sendTickNotes(s, self.seq[s].pointer)
-			self.seq[s].pointer = (self.seq[s].pointer % ticks) + 1
+
+			-- Advance the pointer by 1, and bound it within its loop-range
+			self.seq[s].pointer = self.seq[s].pointer + 1
+			local oldp = self.seq[s].pointer
+			local low = self.seq[s].loop.low or 1
+			local high = self.seq[s].loop.high or self.gridx
+			if self.seq[s].pointer > (chunk * high) then
+				self.seq[s].pointer = self.seq[s].pointer % (chunk * high)
+			end
+			if self.seq[s].pointer < (chunk * (low - 1)) then
+				self.seq[s].pointer = (chunk * (low - 1)) + 1
+			end
+
 		end
 
 		-- If the seq's active column has shifted or been emptied, send an updated sequence row to the Monome apparatus

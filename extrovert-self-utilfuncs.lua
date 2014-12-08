@@ -199,6 +199,8 @@ return {
 			low = false,
 			high = false,
 		}
+
+		self.seq[i].ltab = false -- Holds the previous loop-button keystroke, if any
 		
 		self.seq[i].incoming = { -- Holds all flag changes that will occur upon the next tick, or the next button-gate if a "gate" flag is present
 			cmd = false,

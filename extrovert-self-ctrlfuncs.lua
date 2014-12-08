@@ -1,15 +1,14 @@
 
 return {
 
-	-- If a button falls outside a seq's loop boundaries, widen the loop boundaries
-	widenLoop = function(self, s, b)
-		if self.seq[s].loop.low
-		and (b < self.seq[s].loop.low)
-		then
-			self.seq[s].loop.low = b
-		elseif self.seq[s].loop.high
-		and (b > self.seq[s].loop.high) then
-			self.seq[s].loop.high = b
+	-- Check whether a button falls outside of a loop's boundaries, and if so, unset the loop boundaries
+	checkLoopClear = function(self, s, b)
+		if not rangeCheck(b, self.seq[s].loop.low or 1, self.seq[s].loop.high or self.gridx) then
+			self.seq[s].loop = {
+				low = false,
+				high = false,
+			}
+			self.seq[s].ltab = false
 		end
 	end,
 
@@ -33,7 +32,7 @@ return {
 		-- If the pointer is filled, set it to a position in the button's chunk equivalent to its previous chunk-position.
 		self.seq[s].pointer = ((point and ((point - 1) % chunk)) or 0) + (chunk * (b - 1)) + 1
 
-		self:widenLoop(s, b) -- If button falls outside loop, widen loop edges
+		self:checkLoopClear(s, b) -- If button falls outside loop, clear loop vals
 
 		-- Empty the incoming-command table
 		self.seq[s].incoming.cmd = false
@@ -54,6 +53,7 @@ return {
 			low = false,
 			high = false,
 		}
+		self.seq[s].ltab = false
 		self.seq[s].incoming.cmd = false
 
 	end,
@@ -71,7 +71,7 @@ return {
 		-- Set the seq's pointer to the first tick in the button's corresponding chunk
 		self.seq[s].pointer = (chunk * (b - 1)) + 1
 
-		self:widenLoop(s, b) -- If button falls outside loop, widen loop edges
+		self:checkLoopClear(s, b) -- If button falls outside loop, clear loop vals
 
 		-- Empty the incoming-command table
 		self.seq[s].incoming.cmd = false
@@ -102,43 +102,48 @@ return {
 			self.seq[s2].pointer and math.ceil(self.seq[s2].pointer / (#self.seq[s2].tick / #self.seq[s1].tick)),
 			self.seq[s1].pointer and math.ceil(self.seq[s1].pointer / (#self.seq[s1].tick / #self.seq[s2].tick))
 
-		-- Empty the incoming-command table
-		self.seq[s].incoming.cmd = false
+		-- Empty the incoming-command tables
+		self.seq[s1].incoming.cmd = false
+		self.seq[s2].incoming.cmd = false
 
 	end,
 
-	-- Build an incoming table based on a PRESS-LOOP command.
+	-- Build a loop-table based on a PRESS-LOOP command.
 	ctrlPressLoop = function(self, s, b)
 
-		-- If the sequence doesn't have a pointer, treat this like a PRESS command before assigning a loop
-		if not self.seq[s].pointer then
-			self:ctrlPress(s, b)
-		end
+		if self.seq[s].ltab == false then
 
-		-- Get the sequence's pointer and its corresponding button
-		local point = self.seq[s].pointer
-		local seqbut = math.ceil(point / self.gridx)
+			self.seq[s].ltab = b
 
-		-- If the press-button is lower than the pointer-button, make the press-button the loop's lower bound
-		if b < seqbut then
-			self.seq[s].loop.low = b
-		elseif b == seqbut then -- Else, if press-button equals pointer-button, set loop's low or high bound to press-button, favoring low before high
-			if self.seq[s].loop.low then
-				self.seq[s].loop.high = b
-			else
-				self.seq[s].loop.low = b
+		else
+
+			-- Get the stored loop-keystroke, and the current keystroke
+			local b1 = self.seq[s].ltab
+			local b2 = b
+
+			-- Clear the previous tabbed loop-key
+			self.seq[s].ltab = false
+
+			-- Order the loop-bounds properly, and set them to the seq's local loop table
+			if b1 > b2 then
+				b1, b2 = b2, b1
 			end
-		else -- Else, set the loop's high bound to the press-button
-			self.seq[s].loop.high = b
-		end
+			self.seq[s].loop.low = b1
+			self.seq[s].loop.high = b2
 
-		-- If one of the loop boundaries is unfilled, fill it
-		self.seq[s].loop.low = self.seq[s].loop.low or 1
-		self.seq[s].loop.high = self.seq[s].loop.high or self.gridx
+			local point = self.seq[s].pointer
+			if point then -- If the sequence has a pointer...
 
-		-- If the seq-pointer falls outside of loop range, reposition it at the button-press location
-		if not rangeCheck(seqbut, self.seq[s].loop.low, self.seq[s].loop.high) then
-			self:ctrlPress(s, b)
+				-- Get the corresponding button for the sequence's pointer
+				local seqbut = math.ceil((point / #self.seq[s].tick) * self.gridx)
+
+				-- If the seq-pointer falls outside of loop range, reposition it at the low location
+				if not rangeCheck(seqbut, self.seq[s].loop.low, self.seq[s].loop.high) then
+					self:ctrlPress(s, self.seq[s].loop.low)
+				end
+
+			end
+
 		end
 
 	end,

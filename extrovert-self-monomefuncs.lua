@@ -152,10 +152,10 @@ return {
 			self:ctrlPressOff(snum)
 		elseif self.ctrlflags.trig then -- Else if TRIG is held, send PRESS-TRIG command.
 			self:ctrlPressTrig(snum, col)
-		elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
-			self:ctrlPressSwap(snum)
 		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
 			self:ctrlPressLoop(snum, col)
+		elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
+			self:ctrlPressSwap(snum)
 		else -- Else, if no control-buttons are held (aside from GATE, optionally), send a PRESS command.
 			if self.ctrlflags.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
 				self:ctrlPressTrig(snum, col)
