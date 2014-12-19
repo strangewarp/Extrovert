@@ -47,12 +47,16 @@ return {
 			-- If this is a down keystroke...
 			if flagbool then
 
-				-- Set the GATE command to the corresponding value
-				self.ctrlflags.gate = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
+				local key = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
 
-				-- Turn LEDs on and off, based on which button is held
-				for i = 5, self.gridx do
-					sendLED(i - 1, self.gridy - 1, ((x == i) and 1) or 0)
+				-- If a "change global gate" command is given, advance the global gate-value by the gate-button value.
+				if self.ctrlflags.off and self.ctrlflags.swap then
+					self.tick = (((self.tick + ((self.longticks / self.gridx) * key)) - 1) % self.longticks) + 1
+				else -- Else, if this is a regular gate-button-press...
+					self.ctrlflags.gate = key -- Set the GATE command to the corresponding key-value
+					for i = 5, self.gridx do -- Turn LEDs on and off, based on which button is held
+						sendLED(i - 1, self.gridy - 1, ((x == i) and 1) or 0)
+					end
 				end
 
 			else -- Else, if this is an up keystroke...
