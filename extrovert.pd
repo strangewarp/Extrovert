@@ -53,6 +53,7 @@
 #X obj 206 162 r extrovert-monome-dials;
 #X obj 186 139 r extrovert-monome-buttons;
 #X obj 69 171 loadbang;
+#X obj 248 208 r extrovert-filename;
 #X connect 1 0 3 0;
 #X connect 1 1 2 0;
 #X connect 2 0 4 1;
@@ -62,6 +63,7 @@
 #X connect 6 0 0 3;
 #X connect 7 0 0 2;
 #X connect 8 0 0 0;
+#X connect 9 0 0 5;
 #X restore 22 340 pd extrovert-lua-holder;
 #N canvas 448 32 497 502 extrovert-midi-clock 0;
 #X obj 45 33 r extrovert-metro-command;
@@ -207,3 +209,6 @@
 #X text 23 64 Each track corresponds to a sequence \,;
 #X text 23 74 and all are held within a single file.;
 #X text 23 54 Savefiles must be in MIDI Format 1:;
+#X symbolatom 25 172 30 0 0 2 - extrovert-dummy-filename-receive extrovert-filename
+;
+#X text 23 155 Load custom MIDI file from save directory:;

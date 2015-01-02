@@ -12,7 +12,10 @@ return {
 		local bpm, tpq = false, false
 
 		-- Get the MIDI file's full path and name
-		local fileloc = self.savepath .. fname .. ".mid"
+		local fileloc = self.savepath .. fname
+		if fileloc:sub(-4) ~= ".mid" then
+			fileloc = fileloc .. ".mid"
+		end
 		pd.post("Now loading: " .. fileloc)
 			
 		-- Try to open the MIDI file

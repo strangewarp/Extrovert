@@ -29,7 +29,8 @@ function Extrovert:initialize(sel, atoms)
 	-- 3. Monome button
 	-- 4. Monome ADC
 	-- 5. Metronome-ticks in
-	self.inlets = 5
+	-- 6. Custom loadfile name
+	self.inlets = 6
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
@@ -218,4 +219,9 @@ function Extrovert:in_5(sel, m)
 
 	self:iterateAllSequences()
 	
+end
+
+-- Load a MIDI file with a user-entered filename
+function Extrovert:in_6_symbol(s)
+	self:loadMidiFile(s)
 end
