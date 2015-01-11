@@ -47,45 +47,52 @@ return {
 			pd.post("Loading track " .. tracknum .. "...")
 
 			local outtab = {}
+			local endpoint = 0
 
 			for k, v in pairs(track) do -- Read every command in a track's sub-table
-			
+
+				local vplus = v[2] + 1
+
+				if v[1] == "end_track" then
+					endpoint = math.max(endpoint, v[2])
+				elseif v[1] == "text_event" then
+					endpoint = math.max(endpoint, v[2])
+				end
+				extendTable(outtab, endpoint)
+
 				-- Convert various values into their Extrovert counterparts
 				if v[1] == "note" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[4], 144, v[5], v[6], v[3]})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[4], 144, v[5], v[6], v[3]})
 				elseif v[1] == "channel_after_touch" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[3], 160, v[4], 0, 0})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[3], 160, v[4], 0, 0})
 				elseif v[1] == "control_change" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[3], 176, v[4], v[5], 0})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[3], 176, v[4], v[5], 0})
 				elseif v[1] == "patch_change" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[3], 192, v[4], 0, 0})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[3], 192, v[4], 0, 0})
 				elseif v[1] == "key_after_touch" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[3], 208, v[4], v[5], 0})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[3], 208, v[4], v[5], 0})
 				elseif v[1] == "pitch_wheel_change" then
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
-					table.insert(outtab[v[2]], {v[3], 224, v[4], 0, 0})
+					endpoint = math.max(endpoint, vplus)
+					extendTable(outtab, endpoint)
+					table.insert(outtab[vplus], {v[3], 224, v[4], 0, 0})
 				elseif v[1] == "set_tempo" then -- Grab tempo commands
 					if v[2] == 0 then -- Set global tempo
 						bpm = bpm or (60000000 / v[3])
 					else -- Insert local tempo command into sequence
-						v[2] = v[2] + 1
-						outtab = extendTable(outtab, v[2])
-						table.insert(outtab[v[2]], {0, -10, 60000000 / v[3], 0, 0})
+						endpoint = math.max(endpoint, vplus)
+						extendTable(outtab, endpoint)
+						table.insert(outtab[vplus], {0, -10, 60000000 / v[3], 0, 0})
 					end
-				elseif v[1] == "end_track" then -- Parse the track's end-time, in ticks
-					v[2] = v[2] + 1
-					outtab = extendTable(outtab, v[2])
 				elseif v[1] == "track_name" then -- Post the track's name
 					pd.post("Track name: " .. v[3])
 				else
@@ -95,11 +102,13 @@ return {
 			end
 
 			-- Insert padding ticks, to a value that is either modulo the Monome width, or modulo the Ticks-Per-Beat value
-			local padtobeat = (self.prefs.file.padding == 1)
-			if padtobeat then
-				outtab = extendTable(outtab, #outtab + ((tpq * 4) - (#outtab % (tpq * 4))))
-			else
-				outtab = extendTable(outtab, #outtab + (self.gridx - (#outtab % self.gridx)))
+			local padtobeat = self.prefs.file.padding == 1
+			if (#outtab > 0) and ((#outtab % self.gridx) ~= 0) then
+				if padtobeat then
+					outtab = extendTable(outtab, #outtab + ((tpq * 4) - (#outtab % (tpq * 4))))
+				else
+					outtab = extendTable(outtab, #outtab + (self.gridx - (#outtab % self.gridx)))
+				end
 			end
 
 			-- Transfer the loaded sequence-table into the global sequences
@@ -122,7 +131,7 @@ return {
 		self.tick = 1
 		self.longticks = ((self.seq[1] ~= nil) and #self.seq[1].tick) or 192
 		
-		pd.post("Loaded savefile \"" .. self.hotseats[self.activeseat] .. "\"!")
+		pd.post("Loaded savefile \"" .. fileloc .. "\"!")
 		pd.post("Beats Per Minute: " .. self.bpm)
 		pd.post("Ticks Per Beat: " .. self.tpq)
 
