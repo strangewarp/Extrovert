@@ -27,6 +27,8 @@ return {
 	-- Recursively copy all sub-tables and sub-items, when copying from one table to another. Invoke as: newtable = deepCopy(oldtable, {})
 	deepCopy = function(t, t2)
 
+		t2 = t2 or {}
+
 		for k, v in pairs(t) do
 		
 			if type(v) ~= "table" then

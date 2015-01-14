@@ -2,13 +2,13 @@ return {
 
 	hotseats = { -- Savefile hotseats, which can be called with simple key combinations, to quickly switch between songs during performance
 	
-		"hexaburst",
-		"test",
-		"test",
-		"test",
-		"test",
+		"default",
+		"default",
+		"default",
+		"default",
+		"default",
 
-		"test",
+		"default",
 		"default",
 		"default",
 		"default",
@@ -50,37 +50,9 @@ return {
 		oscsend = 8080, -- OSC send port
 		
 		adc = { -- Table for Monome ADC parameters. ADCs are dials that some Monomes and Arduinomes can have. If you don't know how many ADCs you have, you probably have 0.
-		
-			{ -- ADC 1
-				target = "note", -- Target for the ADC (must be either "note" or "velocity")
-				channel = 1, -- MIDI channel affected by the dial
-				breadth = 12, -- Breadth of the dial's range
-				bottom = -6, -- Bottom of the dial's range, as compared to corresponding note/velocity positions
-			},
-			
-			{ -- ADC 2
-				target = "velocity",
-				channel = 1,
-				breadth = 255,
-				bottom = -127,
-			},
-			
-			{ -- ADC 3
-				target = "velocity",
-				channel = 9,
-				breadth = 255,
-				bottom = -127,
-			},
-			
-			{ -- ADC 4
-				target = "velocity",
-				channel = 10,
-				breadth = 255,
-				bottom = -127,
-			},
-		
+			10, 11, 13, 14, -- MIDI channels affected by each ADC, in order
 		},
-	
+
 	},
 	
 	gui = {

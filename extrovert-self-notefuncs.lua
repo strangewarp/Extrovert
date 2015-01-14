@@ -68,15 +68,13 @@ return {
 	-- Parse an outgoing MIDI command, before actually sending it
 	noteParse = function(self, note)
 
+		note = deepCopy(note) -- Prevent sticky-reference bugs
+
 		if note[2] == 144 then -- If this is a NOTE-ON command, filter the note's contents through all applicable ADC values
 
-			for k, v in ipairs(self.adc) do -- For all ADCs...
-				if v.channel == note[1] then -- If the ADC applies to this note's MIDI channel...
-					if v.target == "note" then -- If the target is NOTE, modify the NOTE value based on the dial's position
-						note[3] = math.max(0, math.min(127, note[3] + v.bottom + math.floor(v.breadth * self.dial[k])))
-					elseif v.target == "velocity" then -- If the target is VELOCITY, modify the VELOCITY value based on the dial's position
-						note[4] = math.max(1, math.min(127, note[4] + v.bottom + math.floor(v.breadth * self.dial[k])))
-					end
+			for k, v in pairs(self.adc) do -- For all ADCs...
+				if v == note[1] then -- If the ADC applies to this note's MIDI channel...
+					note[4] = math.max(1, math.min(127, 127 * self.dial[k]))
 				end
 			end
 		
