@@ -62,7 +62,7 @@ return {
 
 				-- Convert various values into their Extrovert counterparts
 				if v[1] == "note" then
-					endpoint = math.max(endpoint, vplus)
+					endpoint = math.max(endpoint, v[2] + v[3])
 					extendTable(outtab, endpoint)
 					table.insert(outtab[vplus], {v[4], 144, v[5], v[6], v[3]})
 				elseif v[1] == "channel_after_touch" then
