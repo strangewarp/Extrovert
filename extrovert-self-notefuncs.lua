@@ -121,7 +121,18 @@ return {
 	sendTickNotes = function(self, s, t)
 		if self.seq[s].tick[t] ~= nil then
 			for tick, note in ipairs(self.seq[s].tick[t]) do
-				self:noteParse(note)
+				if rangeCheck(note[2], 144, 159) then
+					local pitch = note[3] + self.seq[s].pitch
+					while pitch < 0 do
+						pitch = pitch + 12
+					end
+					while pitch > 127 do
+						pitch = pitch - 12
+					end
+					self:noteParse({note[1], note[2], pitch, note[4], note[5]})
+				else
+					self:noteParse(note)
+				end
 			end
 		end
 	end,

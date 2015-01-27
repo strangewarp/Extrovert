@@ -33,8 +33,9 @@ return {
 
 		if x == 1 then -- Parse OFF button
 			self.ctrlflags.off = flagbool
-		elseif x == 2 then -- Parse RETRIG button
-			self.ctrlflags.trig = flagbool
+		elseif x == 2 then -- Parse PITCH-SHIFT button
+			self.ctrlflags.pitch = flagbool
+			self:sendVisibleSeqRows()
 		elseif x == 3 then -- Parse LOOP button
 			self.ctrlflags.loop = flagbool
 		elseif x == 4 then -- Parse SWAP button
@@ -83,7 +84,13 @@ return {
 
 		if s == 1 then -- On down-keystrokes...
 
-			if self.ctrlflags.off then -- If OFF is held...
+			if self.ctrlflags.off and self.ctrlflags.pitch then -- If both OFF and PITCH are held...
+
+				-- Reset all PITCH values for every sequence on the page
+				self:ctrlPageOffPitch(x)
+				self:sendVisibleSeqRows()
+
+			elseif self.ctrlflags.off then -- If OFF is held...
 
 				-- If GATE is also held, send PAGE-GATE-OFF command. Else send PAGE-OFF command.
 				if self.ctrlflags.gate then
@@ -91,6 +98,12 @@ return {
 				else
 					self:ctrlPageOff(x)
 				end
+
+			elseif self.ctrlflags.pitch then -- If PITCH is held...
+
+				-- Set a pitch-bit for every sequence on the active page
+				self:ctrlPagePitch(self.page, x)
+				self:sendVisibleSeqRows()
 
 			elseif self.ctrlflags.swap then -- If OFF is not held, but SWAP is held...
 
@@ -147,15 +160,19 @@ return {
 			col = x -- Match the col-value to the column of the button that has been pressed
 		end
 
-		-- If GATE is held, apply the globl gate-value to the sequence
+		-- If GATE is held, apply the global gate-value to the sequence
 		if self.ctrlflags.gate then
 			self:ctrlGate(snum)
 		end
 
-		if self.ctrlflags.off then -- If OFF is held, send PRESS-OFF command.
+		if self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
+			self:ctrlPressOffPitch(snum)
+			self:sendPitchRow(snum)
+		elseif self.ctrlflags.off then -- If OFF is held, send PRESS-OFF command.
 			self:ctrlPressOff(snum)
-		elseif self.ctrlflags.trig then -- Else if TRIG is held, send PRESS-TRIG command.
-			self:ctrlPressTrig(snum, col)
+		elseif self.ctrlflags.pitch then -- Else if PITCH is held, send PRESS-PITCH command.
+			self:ctrlPressPitch(snum, col)
+			self:sendPitchRow(snum)
 		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
 			self:ctrlPressLoop(snum, col)
 		elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
@@ -255,6 +272,12 @@ return {
 		end
 	end,
 
+	-- Send a row containing a sequence's boolean pitch-values
+	sendPitchRow = function(self, s)
+		local yrow = (s - 1) % (self.gridy - 2)
+		self:sendBoolTabRow(s, yrow)
+	end,
+
 	-- Send the Monome button-data for a single visible sequence-row
 	sendSeqRow = function(self, s)
 		local yrow = (s - 1) % (self.gridy - 2)
@@ -267,6 +290,29 @@ return {
 		if rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) then -- If the sequence is upon a currently-visible page...
 			self:sendSeqRow(s) -- Send the sequence's Monome GUI row
 		end
+	end,
+
+	-- Send a row whose LED-bytes correspond to a table of booleans
+	sendBoolTabRow = function(self, s, yrow)
+
+		local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
+		if self.prefs.monome.osctype == 0 then
+			rowbytes = {yrow} -- If in MonomeSerial communications mode, remove the X-offset value from the rowbytes table so that the byte sequence is properly formed
+		end
+
+		for b = 0, self.gridx - 8, 8 do
+			local outbyte = 0
+			for i = 1, 8 do
+				local k = b + i
+				if self.seq[s].ptab[k] then
+					outbyte = outbyte + math.max(1, 2 ^ (i - 1))
+				end
+			end
+			table.insert(rowbytes, outbyte)
+		end
+		
+		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
+		
 	end,
 
 	-- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
@@ -310,7 +356,11 @@ return {
 	-- Send the Monome button-data for all visible sequence-rows
 	sendVisibleSeqRows = function(self)
 		for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
-			self:sendSeqRow(i)
+			if self.ctrlflags.pitch then
+				self:sendPitchRow(i)
+			else
+				self:sendSeqRow(i)
+			end
 		end
 	end,
 

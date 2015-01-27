@@ -39,6 +39,26 @@ return {
 
 	end,
 
+	-- Build an incoming table based on a PRESS-TRIG command.
+	ctrlPressTrig = function(self, s, b)
+		self.seq[s].incoming.cmd = {"parsePressTrig", s, b}
+	end,
+
+	-- Parse an incoming PRESS-TRIG command
+	parsePressTrig = function(self, s, b)
+
+		local chunk = #self.seq[s].tick / self.gridx
+
+		-- Set the seq's pointer to the first tick in the button's corresponding chunk
+		self.seq[s].pointer = (chunk * (b - 1)) + 1
+
+		self:checkLoopClear(s, b) -- If button falls outside loop, clear loop vals
+
+		-- Empty the incoming-command table
+		self.seq[s].incoming.cmd = false
+
+	end,
+
 	-- Build an incoming table based on a PRESS-OFF command.
 	ctrlPressOff = function(self, s)
 		self.seq[s].incoming.cmd = {"parsePressOff", s}
@@ -58,23 +78,41 @@ return {
 
 	end,
 
-	-- Build an incoming table based on a PRESS-TRIG command.
-	ctrlPressTrig = function(self, s, b)
-		self.seq[s].incoming.cmd = {"parsePressTrig", s, b}
+	-- Parse an incoming OFF-PITCH command
+	ctrlPressOffPitch = function(self, s)
+		self.seq[s].pitch = 0
+		self.seq[s].ptab = {}
+		for i = 1, self.gridx do
+			self.seq[s].ptab[i] = false
+		end
 	end,
 
-	-- Parse an incoming PRESS-TRIG command
-	parsePressTrig = function(self, s, b)
+	-- Parse an incoming PITCH command
+	ctrlPressPitch = function(self, s, col)
 
-		local chunk = #self.seq[s].tick / self.gridx
+		self.seq[s].ptab[col] = not self.seq[s].ptab[col]
+		self.seq[s].pitch = 0
 
-		-- Set the seq's pointer to the first tick in the button's corresponding chunk
-		self.seq[s].pointer = (chunk * (b - 1)) + 1
+		local sidex = math.floor(self.gridx / 2)
 
-		self:checkLoopClear(s, b) -- If button falls outside loop, clear loop vals
+		local pitch = self.seq[s].pitch
 
-		-- Empty the incoming-command table
-		self.seq[s].incoming.cmd = false
+		for i = 1, self.gridx do
+			if self.seq[s].ptab[i] then
+				local direction = -1
+				local offset = sidex - i
+				if i > sidex then
+					direction = 1
+					offset = (i - 1) - sidex
+				end
+				pd.post("2^OFFSET:"..(2^offset))--debugging
+				pitch = pitch + (math.max(1, 2 ^ offset) * direction)
+			end
+		end
+
+		self.seq[s].pitch = pitch
+
+		pd.post("PITCH:"..self.seq[s].pitch)--debugging
 
 	end,
 
@@ -174,6 +212,23 @@ return {
 			self:ctrlPressOff(((self.gridy - 2) * (p - 1)) + i)
 		end
 
+	end,
+
+	-- Set the pitch-tables of a page of sequences to their default values, using PITCH-OFF commands.
+	ctrlPageOffPitch = function(self, p)
+
+		-- For every sequence in the page, set a PITCH-OFF command
+		for i = 1, self.gridy - 2 do
+			self:ctrlPressOffPitch(((self.gridy - 2) * (p - 1)) + i)
+		end
+
+	end,
+
+	-- Set the pitch-tables of a page of sequences to contain the column's boolean bit, using PITCH commands.
+	ctrlPagePitch = function(self, page, col)
+		for i = 1 + ((self.gridy - 2) * (page - 1)), (self.gridy - 2) * page do
+			self:ctrlPressPitch(i, col)
+		end
 	end,
 
 	-- Build incoming tables based on a PAGE-SWAP command.

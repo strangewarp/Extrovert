@@ -99,8 +99,10 @@ return {
 
 		-- If the seq's active column has shifted or been emptied, send an updated sequence row to the Monome apparatus
 		local newcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
-		if newcol ~= oldcol then
-			self:sendMetaSeqRow(s)
+		if not self.ctrlflags.pitch then
+			if newcol ~= oldcol then
+				self:sendMetaSeqRow(s)
+			end
 		end
 
 	end,

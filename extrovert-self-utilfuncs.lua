@@ -62,6 +62,8 @@ return {
 
 				-- Convert various values into their Extrovert counterparts
 				if v[1] == "note" then
+					v[3] = math.max(1, v[3])
+					v[5] = v[5] or 40
 					endpoint = math.max(endpoint, v[2] + v[3])
 					extendTable(outtab, endpoint)
 					table.insert(outtab[vplus], {v[4], 144, v[5], v[6], v[3]})
@@ -180,15 +182,6 @@ return {
 
 	end,
 
-	-- Send a test-note to the example-note apparatus
-	parsePianoNote = function(self, n)
-		-- Get values, and bound outliers within their respective ranges
-		local chan = n[1] % 16
-		local note = n[2] % 128
-		local velo = n[3] % 128
-		pd.send("extrovert-examplenote", "list", {note, velo, chan}) -- Send the example note
-	end,
-
 	-- Assign hotseat commands to the keycommand and function-hash tables
 	assignHotseatsToCmds = function(self)
 		for k, _ in pairs(self.hotseats) do
@@ -206,8 +199,14 @@ return {
 		self.seq[i] = {}
 		
 		self.seq[i].pointer = false
+
+		self.seq[i].pitch = 0 -- Holds the value that modifies the sequence's pitch
+		self.seq[i].ptab = {} -- Holds all booleans, each standing for a bit that modifies the sequence's pitch value
+		for t = 1, self.gridx do
+			self.seq[i].ptab[t] = false
+		end
 		
-		self.seq[i].loop = {
+		self.seq[i].loop = { -- Holds the sub-loop boundaries
 			low = false,
 			high = false,
 		}

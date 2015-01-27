@@ -49,7 +49,7 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.ctrlflags = { -- Holds all control-flags, which correspond to the control-buttons on the Monome
 		off = false,
-		trig = false,
+		pitch = false,
 		loop = false,
 		swap = false,
 		gate = false, -- Gating commands fill the rest of the control-row. This will hold a number to differentiate between them, or false when not active
