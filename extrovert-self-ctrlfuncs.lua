@@ -105,14 +105,11 @@ return {
 					direction = 1
 					offset = (i - 1) - sidex
 				end
-				pd.post("2^OFFSET:"..(2^offset))--debugging
 				pitch = pitch + (math.max(1, 2 ^ offset) * direction)
 			end
 		end
 
 		self.seq[s].pitch = pitch
-
-		pd.post("PITCH:"..self.seq[s].pitch)--debugging
 
 	end,
 
