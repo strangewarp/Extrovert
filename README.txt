@@ -78,7 +78,7 @@ S: SWAP button.
 G: GATE button.
 -- When not held down, displays the global gate-counter.
 -- When held down, a given sequence or command won't be triggered until the global gate-counter reaches a corresponding value.
--- Gate buttons are arranged in a bitwise layout, but are not chordable, for ambiguity reasons. Layout is as such:
+-- Gate buttons are arranged in a bitwise layout, but are not chordable with each other, for gate-value ambiguity reasons. Layout is as such:
 -- 1 2 4 8
 -- On a wider Monome, the layout should default to: 1 2 4 8 16 16 16 16 ... etc.
 -- Can be chorded with OFF, SWAP, PAGE, OFF-PAGE, and SWAP-PAGE.
