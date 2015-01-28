@@ -27,7 +27,7 @@ Installation:
 
 3. Open extrovert-prefs.lua, and change the variables depending on your setup. Important lines include:
 	A. saves = "C:/Users/Christian/Documents/MUSIC_STAGING/", -- The path of the directory that holds the user's savefiles.
-		-- Right now, my save-directory is in there. Put your save-directory in there instead!
+	-- Right now, my save-directory is in there. Put your save-directory in there instead!
 	B. osctype = 0, -- 0 for MonomeSerial; 1 for serialosc
 	C. osclisten = 8000, -- OSC listen port
 	D. oscsend = 8080, -- OSC send port
@@ -35,6 +35,10 @@ Installation:
 4. In serialosc, MonomeSerial, or whatever you're using, set your app name to "/extrovert", and make sure the listen/send ports match.
 
 5. Now open up extrovert.pd in Puredata 0.43.4-extended, enter a filename or load a hotseat, and have yourself some Extrovert!
+
+6. Every track in a given MIDI file corresponds to an Extrovert sequence.
+-- Sequences can contain notes from multiple MIDI channels, or even overlapping note-ons for the same channel and pitch. Extrovert's sustain-tracking system is pretty robust.
+-- If a MIDI track's length (e.g. the position of its end-track command) isn't a multiple of the Monome-grid's X-width, odd behavior might occur.
 
 Here's a short overview of the controls, as plotted out on an 8x8 Monome or Monome-compatible grid-controller:
 
