@@ -237,8 +237,6 @@ return {
 			end
 		end
 
-		pd.post("PRE-AMT: "..amt)--debugging
-
 		amt = amt / ((2 ^ sidex) - 1)
 
 		self.seq[s].sfactors = sdup

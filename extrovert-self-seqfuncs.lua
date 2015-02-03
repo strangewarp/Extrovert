@@ -111,18 +111,16 @@ return {
 	-- Build a meta version of a sequence's tick-table, based on its SCATTER values
 	buildScatterTable = function(self, s)
 
-		local seq = self.seq[s]
-
-		if #seq.sfactors == 0 then
+		if #self.seq[s].sfactors == 0 then
 			self.seq[s].metaticks = {}
 			return nil
 		end
 
-		local ticks = #seq.tick
+		local ticks = #self.seq[s].tick
 		local tempnotes = {}
 		local shiftnotes = {}
 
-		for i = 1, #seq.tick do
+		for i = 1, #self.seq[s].tick do
 			self.seq[s].metatick[i] = {}
 		end
 
@@ -137,7 +135,7 @@ return {
 			end
 		end
 
-		local limit = math.max(1, #tempnotes * (1 - seq.samount))
+		local limit = math.max(1, #tempnotes * (1 - self.seq[s].samount))
 
 		while #tempnotes > limit do
 			local pnote = table.remove(tempnotes, math.random(1, #tempnotes)) -- Get random NOTE command to shift
@@ -154,7 +152,7 @@ return {
 		for _, v in pairs(shiftnotes) do
 			local didput = false -- Track whether a note was successfully placed
 			local tick, note = unpack(v) -- Unpack the previously combined note elements
-			local fdup = deepCopy(seq.sfactors) -- Make a copy of seq.factors, to avoid depopulating the original
+			local fdup = deepCopy(self.seq[s].sfactors) -- Make a copy of seq[s].sfactors, to avoid depopulating the original
 			while #fdup > 0 do -- While there are viable distance-factors remaining...
 				local factor = table.remove(fdup, math.random(#fdup)) -- Get a random factor
 				local dist = self.tpq * factor -- Get a distance-value, of (TPQ * factor)
@@ -166,7 +164,7 @@ return {
 				end
 			end
 			if not didput then -- If a note wasn't successfully placed, then place it in a random factor that overlaps with other note-starts
-				local newtick = (((tick + (self.tpq * seq.sfactors[math.random(#seq.sfactors)])) - 1) % ticks) + 1
+				local newtick = (((tick + (self.tpq * self.seq[s].sfactors[math.random(#self.seq[s].sfactors)])) - 1) % ticks) + 1
 				table.insert(self.seq[s].metatick[newtick], note)
 			end
 		end
