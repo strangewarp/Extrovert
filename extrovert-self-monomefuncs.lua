@@ -38,6 +38,9 @@ return {
 			self:sendVisibleSeqRows()
 		elseif x == 3 then -- Parse LOOP button
 			self.ctrlflags.loop = flagbool
+			if self.ctrlflags.pitch then
+				self:sendVisibleSeqRows()
+			end
 		elseif x == 4 then -- Parse SWAP button
 			self.ctrlflags.swap = flagbool
 		elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
@@ -84,7 +87,19 @@ return {
 
 		if s == 1 then -- On down-keystrokes...
 
-			if self.ctrlflags.off and self.ctrlflags.pitch then -- If both OFF and PITCH are held...
+			if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held...
+
+				-- Reset all SCATTER values for every sequence on the page
+				self:ctrlPageOffScatter(x)
+				self:sendVisibleSeqRows()
+
+			elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If both PITCH and LOOP are held...
+
+				-- Set a scatter-bit for every sequence on the page
+				self:ctrlPageScatter(self.page, x)
+				self:sendVisibleSeqRows()
+
+			elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If both OFF and PITCH are held...
 
 				-- Reset all PITCH values for every sequence on the page
 				self:ctrlPageOffPitch(x)
@@ -165,7 +180,13 @@ return {
 			self:ctrlGate(snum)
 		end
 
-		if self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
+		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
+			self:ctrlPressOffScatter(snum)
+			self:sendScatterRow(snum)
+		elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If PITCH and LOOP are held, send SCATTER command.
+			self:ctrlPressScatter(snum, col)
+			self:sendScatterRow(snum)
+		elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
 			self:ctrlPressOffPitch(snum)
 			self:sendPitchRow(snum)
 		elseif self.ctrlflags.off then -- If OFF is held, send PRESS-OFF command.
@@ -272,10 +293,20 @@ return {
 		end
 	end,
 
-	-- Send a row containing a sequence's boolean pitch-values
+	-- Send a sequence's SCATTER row
+	sendScatterRow = function(self, s)
+		self:sendBoolRow(s, self.seq[s].stab)
+	end,
+
+	-- Send a sequence's PITCH row
 	sendPitchRow = function(self, s)
+		self:sendBoolRow(s, self.seq[s].ptab)
+	end,
+
+	-- Send a row containing a sequence's boolean pitch-values
+	sendBoolRow = function(self, s, bools)
 		local yrow = (s - 1) % (self.gridy - 2)
-		self:sendBoolTabRow(s, yrow)
+		self:sendBoolTabRow(yrow, bools)
 	end,
 
 	-- Send the Monome button-data for a single visible sequence-row
@@ -293,7 +324,7 @@ return {
 	end,
 
 	-- Send a row whose LED-bytes correspond to a table of booleans
-	sendBoolTabRow = function(self, s, yrow)
+	sendBoolTabRow = function(self, yrow, bools)
 
 		local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
 		if self.prefs.monome.osctype == 0 then
@@ -304,7 +335,7 @@ return {
 			local outbyte = 0
 			for i = 1, 8 do
 				local k = b + i
-				if self.seq[s].ptab[k] then
+				if bools[k] then
 					outbyte = outbyte + math.max(1, 2 ^ (i - 1))
 				end
 			end
@@ -356,7 +387,9 @@ return {
 	-- Send the Monome button-data for all visible sequence-rows
 	sendVisibleSeqRows = function(self)
 		for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
-			if self.ctrlflags.pitch then
+			if self.ctrlflags.pitch and self.ctrlflags.loop then
+				self:sendScatterRow(i)
+			elseif self.ctrlflags.pitch then
 				self:sendPitchRow(i)
 			else
 				self:sendSeqRow(i)

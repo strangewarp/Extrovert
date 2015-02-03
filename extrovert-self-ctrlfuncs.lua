@@ -95,8 +95,7 @@ return {
 
 		local sidex = math.floor(self.gridx / 2)
 
-		local pitch = self.seq[s].pitch
-
+		local pitch = 0
 		for i = 1, self.gridx do
 			if self.seq[s].ptab[i] then
 				local direction = -1
@@ -199,6 +198,82 @@ return {
 	ctrlGateSwap = function(self, s)
 		self:ctrlGate(s)
 		self:ctrlPressSwap(s)
+	end,
+
+	-- Build a scatter table based on the PRESS-SCATTER command, then call a function to build a meta-tick table.
+	ctrlPressScatter = function(self, s, col)
+
+		self.seq[s].stab[col] = not self.seq[s].stab[col]
+		self.seq[s].sfactors = {}
+		self.seq[s].samount = 0
+
+		local sidex = math.floor(self.gridx / 2)
+
+		local scatter = {}
+		local amt = 0
+
+		for i = 1, self.gridx do
+			if self.seq[s].stab[i] then
+				if i <= sidex then
+					amt = amt + math.max(1, 2 ^ (sidex - i))
+				else
+					table.insert(scatter, math.max(1, 2 ^ ((i - sidex) - 1)))
+				end
+			end
+		end
+
+		local sdup = deepCopy(scatter)
+		for i = 1, #scatter do
+			table.insert(sdup, -scatter[i])
+			for j = i + 1, #scatter do
+				local putplus = scatter[i] + scatter[j]
+				table.insert(sdup, putplus)
+				table.insert(sdup, -putplus)
+				if (j / i) ~= 2 then
+					local putminus = scatter[j] - scatter[i]
+					table.insert(sdup, putminus)
+					table.insert(sdup, -putminus)
+				end
+			end
+		end
+
+		pd.post("PRE-AMT: "..amt)--debugging
+
+		amt = amt / ((2 ^ sidex) - 1)
+
+		self.seq[s].sfactors = sdup
+		self.seq[s].samount = amt
+
+		self:buildScatterTable(s)
+
+	end,
+
+	-- On an OFF-SCATTER command, unset a sequence's scatter-table, and empty its metatick table
+	ctrlPressOffScatter = function(self, s)
+		self.seq[s].sfactors = {}
+		self.seq[s].samount = 0
+		self.seq[s].stab = {}
+		for i = 1, self.gridx do
+			self.seq[s].stab[i] = false
+		end
+		self.seq[s].metatick = {}
+	end,
+
+	-- Set the scatter-tables of a page of sequences to contain the column's boolean bit, using SCATTER commands.
+	ctrlPageScatter = function(self, page, col)
+		for i = 1 + ((self.gridy - 2) * (page - 1)), (self.gridy - 2) * page do
+			self:ctrlPressScatter(i, col)
+		end
+	end,
+
+	-- Set the scatter-tables of a page of sequences to their default values, using SCATTER-OFF commands.
+	ctrlPageOffScatter = function(self, p)
+
+		-- For every sequence in the page, set a SCATTER-OFF command
+		for i = 1, self.gridy - 2 do
+			self:ctrlPressOffScatter(((self.gridy - 2) * (p - 1)) + i)
+		end
+
 	end,
 
 	-- Build incoming tables based on a PAGE-OFF command.

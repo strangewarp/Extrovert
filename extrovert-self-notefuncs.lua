@@ -119,8 +119,9 @@ return {
 
 	-- Send all notes within a given tick in a given sequence
 	sendTickNotes = function(self, s, t)
-		if self.seq[s].tick[t] ~= nil then
-			for tick, note in ipairs(self.seq[s].tick[t]) do
+		local mt = ((#self.seq[s].sfactors > 0) and self.seq[s].metatick[t]) or self.seq[s].tick[t]
+		if mt ~= nil then
+			for _, note in ipairs(mt) do
 				if rangeCheck(note[2], 144, 159) then
 					local pitch = note[3] + self.seq[s].pitch
 					while pitch < 0 do

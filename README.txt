@@ -66,10 +66,10 @@ O: OFF button.
 
 H: PITCH button.
 -- When held down, toggles a new screen, where half of each row is a bitwise value corresponding to pitch-offset. Like so:
--- 8 4 2 1 1 2 4 8
+-- -8 -4 -2 -1 1 2 4 8
 -- The left-side bits are for pitch-down; and right-side bits are for pitch-up. This is applied to all pitch-values of all notes in the sequence, and fully reversible.
 -- OFF chord: Tap a sequence-row to reset that sequence's pitch-value to default.
--- PAGE chord: Sets a given pitch-mod byte for all sequences in the active page. The page-button, here, corresponds to a pitch-bit on the active page, rather than that button's usual page! Be aware!
+-- PAGE chord: Sets a given pitch-bit, in a column across all sequences in the active page. The page-button, here, corresponds to a pitch-bit on the active page, rather than that button's usual page! Be aware!
 -- OFF-PAGE chord: Resets pitch-values to default for all sequences in the active page.
 
 L: LOOP button.
@@ -86,3 +86,14 @@ G: GATE button.
 -- 1 2 4 8
 -- On a wider Monome, the layout should default to: 1 2 4 8 16 16 16 16 ... etc.
 -- Can be chorded with OFF, SWAP, PAGE, OFF-PAGE, and SWAP-PAGE.
+
+SPECIAL COMMANDS
+
+SCATTER: Chord PITCH and LOOP buttons.
+-- When held down, toggles a new screen, where every button represents a bitwise value. The left half of each row represents a row's scatter amount, while the right half represents the allowed scatter distances. Like so:
+-- scatter amount 8 4 2 1 | 1 2 4 8 scatter distance
+-- "Scatter amount": The SCATTER command will be applied to a fraction of notes in the sequence equal to scatter/((2^floor(gridX/2))-1) ... Basically: the higher the scatter amount, the more notes get scattered.
+-- "Scatter distance": Creates a set of distances, which are multiplied by the song's TPQ value to find a new note-position for scattered notes. Values will be combined, and flipped into negative values as well: e.g. if distances of [1, 4, 8] are active, then distances of [1, 4, 8, -1, -4, -8, 3, 5, 7, 9, 12, -3, -5, -7, -9, -12] will be generated.
+-- OFF chord: Tap a sequence-row to reset that sequence's scatter-values to default.
+-- PAGE chord: Sets a given scatter-bit, in a column across all sequences in the active page. The page-button, here, corresponds to a scatter-bit on the active page, rather than the button's usual page! Be aware!
+-- OFF-PAGE chord: Resets scatter-values to default for all sequences in the active page.

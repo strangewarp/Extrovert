@@ -90,6 +90,7 @@ return {
 			local high = self.seq[s].loop.high or self.gridx
 			if self.seq[s].pointer > (chunk * high) then
 				self.seq[s].pointer = self.seq[s].pointer % (chunk * high)
+				self:buildScatterTable(s) -- Build a new SCATTER table on every loop
 			end
 			if self.seq[s].pointer < (chunk * (low - 1)) then
 				self.seq[s].pointer = (chunk * (low - 1)) + 1
@@ -102,6 +103,71 @@ return {
 		if not self.ctrlflags.pitch then
 			if newcol ~= oldcol then
 				self:sendMetaSeqRow(s)
+			end
+		end
+
+	end,
+
+	-- Build a meta version of a sequence's tick-table, based on its SCATTER values
+	buildScatterTable = function(self, s)
+
+		local seq = self.seq[s]
+
+		if #seq.sfactors == 0 then
+			self.seq[s].metaticks = {}
+			return nil
+		end
+
+		local ticks = #seq.tick
+		local tempnotes = {}
+		local shiftnotes = {}
+
+		for i = 1, #seq.tick do
+			self.seq[s].metatick[i] = {}
+		end
+
+		-- Copy all commands from the original sequence, and store extra info on NOTE commands
+		for k, v in pairs(self.seq[s].tick) do
+			for _, vv in pairs(v) do
+				if vv[2] == 144 then -- If this is a NOTE, increase NOTE-counter, and store its tempnotes-index
+					table.insert(tempnotes, {k, deepCopy(vv)})
+				else -- Else, for non-NOTE commands, put them straight into the meta-sequence
+					table.insert(self.seq[s].metatick[k], deepCopy(vv)) -- Copy every command into a tempnotes table
+				end
+			end
+		end
+
+		local limit = math.max(1, #tempnotes * (1 - seq.samount))
+
+		while #tempnotes > limit do
+			local pnote = table.remove(tempnotes, math.random(1, #tempnotes)) -- Get random NOTE command to shift
+			table.insert(shiftnotes, pnote) -- Put the note into the notes-to-be-shifted table
+		end
+
+		-- Put non-shifted tempnotes into the sequence's metatick table
+		for _, v in pairs(tempnotes) do
+			local tick, note = unpack(v)
+			table.insert(self.seq[s].metatick[tick], note)
+		end
+
+		-- Shift the positions of all remaining notes
+		for _, v in pairs(shiftnotes) do
+			local didput = false -- Track whether a note was successfully placed
+			local tick, note = unpack(v) -- Unpack the previously combined note elements
+			local fdup = deepCopy(seq.sfactors) -- Make a copy of seq.factors, to avoid depopulating the original
+			while #fdup > 0 do -- While there are viable distance-factors remaining...
+				local factor = table.remove(fdup, math.random(#fdup)) -- Get a random factor
+				local dist = self.tpq * factor -- Get a distance-value, of (TPQ * factor)
+				local newtick = (((tick + dist) - 1) % ticks) + 1 -- Get the note's new tick-position, wrapping to sequence boundaries
+				if #self.seq[s].metatick[newtick] == 0 then -- If the tick's metatick slot is empty...
+					table.insert(self.seq[s].metatick[newtick], note) -- Put the note in the metatick tick
+					didput = true -- Confirm that a note was placed
+					break -- Exit the while-loop
+				end
+			end
+			if not didput then -- If a note wasn't successfully placed, then place it in a random factor that overlaps with other note-starts
+				local newtick = (((tick + (self.tpq * seq.sfactors[math.random(#seq.sfactors)])) - 1) % ticks) + 1
+				table.insert(self.seq[s].metatick[newtick], note)
 			end
 		end
 
