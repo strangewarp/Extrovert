@@ -176,9 +176,6 @@ return {
 			col = x -- Match the col-value to the column of the button that has been pressed
 		end
 
-		-- Apply the global gate-value to the sequence, whatever the global gate-value is
-		self:ctrlGate(snum)
-
 		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
 			self:ctrlPressOffScatter(snum)
 			self:sendScatterRow(snum)
@@ -188,20 +185,23 @@ return {
 		elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
 			self:ctrlPressOffPitch(snum)
 			self:sendPitchRow(snum)
-		elseif self.ctrlflags.off then -- If OFF is held, send PRESS-OFF command.
-			self:ctrlPressOff(snum)
 		elseif self.ctrlflags.pitch then -- Else if PITCH is held, send PRESS-PITCH command.
 			self:ctrlPressPitch(snum, col)
 			self:sendPitchRow(snum)
 		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
 			self:ctrlPressLoop(snum, col)
-		elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
-			self:ctrlPressSwap(snum)
-		else -- Else, if no control-buttons are held (aside from GATE, optionally), send a PRESS command.
-			if self.ctrlflags.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
-				self:ctrlPressTrig(snum, col)
-			else -- Else, if GATE isn't held, send a regular PRESS command
-				self:ctrlPress(snum, col)
+		else -- Else, check for commands that interact with GATE
+			self:ctrlGate(snum) -- Apply the global gate-value to the sequence, whatever the global gate-value is
+			if self.ctrlflags.off then -- Else if OFF is held, send PRESS-OFF command.
+				self:ctrlPressOff(snum)
+			elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
+				self:ctrlPressSwap(snum)
+			else -- Else, if no control-buttons are held (aside from GATE, optionally), send a PRESS command.
+				if self.ctrlflags.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
+					self:ctrlPressTrig(snum, col)
+				else -- Else, if GATE isn't held, send a regular PRESS command
+					self:ctrlPress(snum, col)
+				end
 			end
 		end
 
