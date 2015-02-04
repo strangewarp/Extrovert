@@ -64,14 +64,25 @@ return {
 			-- If any commands are set...
 			if self.seq[s].incoming.cmd then
 
-				-- Parse the sequence's incoming command
+				-- Get the sequence's incoming command
 				local c = table.remove(self.seq[s].incoming.cmd, 1)
 				local args = self.seq[s].incoming.cmd
+
+				local swapsend = false
+				if c == "parsePressSwap" then
+					swapsend = ((args[1] == s) and args[2]) or args[1]
+				end
+
+				-- Parse the sequence's incoming command
 				self[c](self, unpack(args))
 
 				-- Set the seq's incoming-command to false
 				self.seq[s].incoming.cmd = false
 
+				if swapsend then
+					self:updateSeqButton(swapsend)
+					self:sendMetaSeqRow(swapsend)
+				end
 				self:updateSeqButton(s) -- Update on-screen GUI
 
 			end

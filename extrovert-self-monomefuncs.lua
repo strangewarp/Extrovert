@@ -125,6 +125,7 @@ return {
 				-- If GATE is also held, send PAGE-GATE-SWAP command. Else send PAGE-SWAP command.
 				if self.ctrlflags.gate then
 					self:ctrlPageGateSwap(x)
+					self:updateSeqPage(x)
 				else
 					self:ctrlPageSwap(x)
 				end
@@ -175,10 +176,8 @@ return {
 			col = x -- Match the col-value to the column of the button that has been pressed
 		end
 
-		-- If GATE is held, apply the global gate-value to the sequence
-		if self.ctrlflags.gate then
-			self:ctrlGate(snum)
-		end
+		-- Apply the global gate-value to the sequence, whatever the global gate-value is
+		self:ctrlGate(snum)
 
 		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
 			self:ctrlPressOffScatter(snum)
