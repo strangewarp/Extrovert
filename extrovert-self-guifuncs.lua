@@ -1,5 +1,20 @@
 
 return {
+
+	-- Update all sequences in the GUI that have been listed as needing updates
+	updateGUI = function(self)
+		for k, v in pairs(self.guiqueue) do
+			local c = table.remove(v, 1)
+			self[c](self, unpack(v))
+		end
+		self.guiqueue = {}
+	end,
+
+	-- Put a deconstructed rendering function into the GUI-rendering queue
+	queueGUI = function(self, ...)
+		local args = {...}
+		table.insert(self.guiqueue, args)
+	end,
 	
 	-- Build the canvas GUI in Extrovert's GUI window
 	buildGUI = function(self)

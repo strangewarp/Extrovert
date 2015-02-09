@@ -33,7 +33,7 @@ return {
 		if (not self.ctrlflags.gate)
 		and (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
 		then
-			self:sendGateCountButtons()
+			self:queueGUI("sendGateCountButtons")
 		end
 
 		-- Decay all currently-active sustains
@@ -79,11 +79,12 @@ return {
 				-- Set the seq's incoming-command to false
 				self.seq[s].incoming.cmd = false
 
+				-- Queue whatever GUI updates might apply
 				if swapsend then
-					self:updateSeqButton(swapsend)
-					self:sendMetaSeqRow(swapsend)
+					self:queueGUI("updateSeqButton", swapsend)
+					self:queueGUI("sendMetaSeqRow", swapsend)
 				end
-				self:updateSeqButton(s) -- Update on-screen GUI
+				self:queueGUI("updateSeqButton", s)
 
 			end
 
@@ -113,7 +114,7 @@ return {
 		local newcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
 		if not self.ctrlflags.pitch then
 			if newcol ~= oldcol then
-				self:sendMetaSeqRow(s)
+				self:queueGUI("sendMetaSeqRow", s)
 			end
 		end
 

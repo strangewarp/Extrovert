@@ -138,6 +138,11 @@ return {
 		pd.post("Ticks Per Beat: " .. self.tpq)
 
 		self:propagateBPM() -- Propagate the new BPM value
+
+		-- Queue changes to the GUI elements that might have changed
+		self:queueGUI("sendMetaGrid")
+		self:queueGUI("sendGateCountButtons")
+		self:queueGUI("updateSeqGrid")
 		
 		self:startTempo() -- Start the tempo system again
 
@@ -147,7 +152,7 @@ return {
 	toggleToHotseat = function(self, seat)
 		self.activeseat = seat
 		pd.post("Saveload hotseat: " .. self.activeseat .. ": " .. self.hotseats[self.activeseat])
-		self:updateHotseatBar()
+		self:queueGUI("updateHotseatBar")
 	end,
 
 	-- Analyze an incoming command name, and invoke its corresponding function and arguments

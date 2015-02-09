@@ -30,7 +30,8 @@ function Extrovert:initialize(sel, atoms)
 	-- 4. Monome ADC
 	-- 5. Metronome-ticks in
 	-- 6. Custom loadfile name
-	self.inlets = 6
+	-- 7. Custom savefile name
+	self.inlets = 7
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
@@ -87,10 +88,6 @@ function Extrovert:initialize(sel, atoms)
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
 	
-	self.overview = false -- Tracks whether Overview Mode is toggled or not. Causes changes to the Monome display, and to keypress behaviors
-	
-	self.byteignore = 0 -- Tracks how many inoming raw MIDI bytes to ignore, during the reception of MIDI SONG POSITION commands
-	
 	self.tick = 1 -- Current clock tick in the sequencer
 	
 	self.page = 1 -- Active page, for tabbing between pages of sequences in performance
@@ -104,6 +101,41 @@ function Extrovert:initialize(sel, atoms)
 	for i = 0, 15 do
 		self.sustain[i] = {}
 	end
+
+	self.g = { -- All groove mode flags and binary-value tables
+		pitch = {}, -- Note pitch (binary value, 8 bits, limit of 127)
+		velo = {}, -- Note velocity (binary value, 8 bits, limit of 127)
+		dur = {}, -- Note duration (binary value, 8+ bits, no limit)
+		chan = {}, -- MIDI channel (binary value, 4 bits, limit of 15)
+		humanize = {}, -- Humanize amount (binary value, 4 bits, 16-128)
+		len = {}, -- Track length (len * tpq * 4) (binary value, 8 bits, limit of 128)
+		seq = {}, -- Sequence number (binary value, 8+ bits, limit of self.gridx*(self.gridy-2))
+		quant = {}, -- Quantize amount (binary value, 8+ bits, fixed as max(1,round((tpq*4)/q)))
+		rec = false, -- Flag for: recording new notes enabled? (toggle button)
+		erase = false, -- Flag for: currently erasing notes in the active sequence as it plays through? (press-and-hold button)
+	}
+	for i = 1, self.gridx do
+		self.g.pitch[i] = false
+		self.g.velo[i] = false
+		self.g.dur[i] = false
+		self.g.len[i] = false
+		self.g.seq[i] = false
+		self.g.quant[i] = false
+	end
+	for i = 1, math.floor(self.gridx / 2) do
+		self.g.chan[i] = false
+		self.g.humanize[i] = false
+	end
+	self.g.dur[1] = true
+	self.g.seq[1] = true
+
+	self.groove = false -- Tracks whether Groove Mode is toggled or not.
+	self.overview = false -- Tracks whether Overview Mode is toggled or not.
+	
+	-- Holds all currently-tabbed GUI update commands, with their function-name and args listed flatly, e.g.:
+	-- [1] = {"sendSeqRow", seqnum}
+	-- [2] = {"updateSeqButton", snum}
+	self.guiqueue = {}
 
 	return true
 	
@@ -187,6 +219,8 @@ function Extrovert:in_2_list(key)
 		self.kb[key[2]] = nil -- Unset the key
 	end
 
+	self:updateGUI() -- Update ay changed GUI elements
+
 end
 
 -- Parse Monome button commands
@@ -199,6 +233,8 @@ function Extrovert:in_3_list(t)
 
 	self:parseButtonPress(x, y, s)
 	
+	self:updateGUI() -- Update ay changed GUI elements
+
 end
 
 -- Parse Monome ADC commands
@@ -212,6 +248,8 @@ function Extrovert:in_4_list(t)
 		self.dial[knob] = t[2]
 	end
 
+	self:updateGUI() -- Update ay changed GUI elements
+
 end
 
 -- Parse incoming tempo ticks
@@ -219,9 +257,24 @@ function Extrovert:in_5(sel, m)
 
 	self:iterateAllSequences()
 	
+	self:updateGUI() -- Update ay changed GUI elements
+
 end
 
 -- Load a MIDI file with a user-entered filename
 function Extrovert:in_6_symbol(s)
+
 	self:loadMidiFile(s)
+
+	self:updateGUI() -- Update ay changed GUI elements
+
+end
+
+-- Save to a MIDI file, in the user-supplied directory, with a user-entered filename
+function Extrovert:in_7_symbol(s)
+
+	self:saveMidiFile(s)
+
+	self:updateGUI() -- Update ay changed GUI elements
+
 end

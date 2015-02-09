@@ -97,3 +97,14 @@ SCATTER: Chord PITCH and LOOP buttons.
 -- OFF chord: Tap a sequence-row to reset that sequence's scatter-values to default.
 -- PAGE chord: Sets a given scatter-bit, in a column across all sequences in the active page. The page-button, here, corresponds to a scatter-bit on the active page, rather than the button's usual page! Be aware!
 -- OFF-PAGE chord: Resets scatter-values to default for all sequences in the active page.
+
+
+
+KEYBOARD COMMANDS
+
+MIDI PANIC: Space
+-- Ends all current MIDI sustains.
+
+LOAD HOTSEAT FILE: Shift-Tab-O
+-- Loads currently selected hotseat-file.
+

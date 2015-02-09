@@ -12,8 +12,6 @@ return {
 			self:parseSeqButton(x, y, s)
 		end
 		
-		pd.post("Monome cmd: " .. x .. " " .. y .. " " .. s)
-
 	end,
 
 	-- Parse an incoming control-row command from the Monome
@@ -35,11 +33,11 @@ return {
 			self.ctrlflags.off = flagbool
 		elseif x == 2 then -- Parse PITCH-SHIFT button
 			self.ctrlflags.pitch = flagbool
-			self:sendVisibleSeqRows()
+			self:queueGUI("sendVisibleSeqRows")
 		elseif x == 3 then -- Parse LOOP button
 			self.ctrlflags.loop = flagbool
 			if self.ctrlflags.pitch then
-				self:sendVisibleSeqRows()
+				self:queueGUI("sendVisibleSeqRows")
 			end
 		elseif x == 4 then -- Parse SWAP button
 			self.ctrlflags.swap = flagbool
@@ -59,7 +57,7 @@ return {
 				else -- Else, if this is a regular gate-button-press...
 					self.ctrlflags.gate = key -- Set the GATE command to the corresponding key-value
 					for i = 5, self.gridx do -- Turn LEDs on and off, based on which button is held
-						sendLED(i - 1, self.gridy - 1, ((x == i) and 1) or 0)
+						self:queueGUI("sendSelfLED", i - 1, self.gridy - 1, ((x == i) and 1) or 0)
 					end
 				end
 
@@ -69,7 +67,7 @@ return {
 				self.ctrlflags.gate = false
 
 				-- Revert to displaying the GATE counter
-				self:sendGateCountButtons()
+				self:queueGUI("sendGateCountButtons")
 
 			end
 
@@ -77,7 +75,7 @@ return {
 
 		-- If this wasn't a GATE button, send the LED straightforwardly
 		if x < 5 then
-			sendLED(x - 1, self.gridy - 1, light)
+			self:queueGUI("sendSelfLED", x - 1, self.gridy - 1, light)
 		end
 
 	end,
@@ -91,19 +89,19 @@ return {
 
 				-- Reset all SCATTER values for every sequence on the page
 				self:ctrlPageOffScatter(x)
-				self:sendVisibleSeqRows()
+				self:queueGUI("sendVisibleSeqRows")
 
 			elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If both PITCH and LOOP are held...
 
 				-- Set a scatter-bit for every sequence on the page
 				self:ctrlPageScatter(self.page, x)
-				self:sendVisibleSeqRows()
+				self:queueGUI("sendVisibleSeqRows")
 
 			elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If both OFF and PITCH are held...
 
 				-- Reset all PITCH values for every sequence on the page
 				self:ctrlPageOffPitch(x)
-				self:sendVisibleSeqRows()
+				self:queueGUI("sendVisibleSeqRows")
 
 			elseif self.ctrlflags.off then -- If OFF is held...
 
@@ -118,14 +116,14 @@ return {
 
 				-- Set a pitch-bit for every sequence on the active page
 				self:ctrlPagePitch(self.page, x)
-				self:sendVisibleSeqRows()
+				self:queueGUI("sendVisibleSeqRows")
 
 			elseif self.ctrlflags.swap then -- If OFF is not held, but SWAP is held...
 
 				-- If GATE is also held, send PAGE-GATE-SWAP command. Else send PAGE-SWAP command.
 				if self.ctrlflags.gate then
 					self:ctrlPageGateSwap(x)
-					self:updateSeqPage(x)
+					self:queueGUI("updateSeqPage", x)
 				else
 					self:ctrlPageSwap(x)
 				end
@@ -144,14 +142,14 @@ return {
 					self.page = x
 				end
 
-				self:sendPageRow() -- Send the page-row butons to the Monome.
+				self:queueGUI("sendPageRow") -- Queue a command to send the page-row buttons to the Monome.
 
 			end
 
-			self:sendMetaGrid() -- Send the seq-rows to the Monome, for any mode.
+			self:queueGUI("sendMetaGrid") -- Send the seq-rows to the Monome, for any mode.
 
 			if self.ctrlflags.gate then
-				self:updateSeqPage(x) -- Update on-screen GUI to reflect pending GATE
+				self:queueGUI("updateSeqPage", x) -- Queue an update to the on-screen GUI to reflect a pending GATE command
 			end
 
 		end
@@ -178,16 +176,16 @@ return {
 
 		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
 			self:ctrlPressOffScatter(snum)
-			self:sendScatterRow(snum)
+			self:queueGUI("sendScatterRow", snum)
 		elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If PITCH and LOOP are held, send SCATTER command.
 			self:ctrlPressScatter(snum, col)
-			self:sendScatterRow(snum)
+			self:queueGUI("sendScatterRow", snum)
 		elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
 			self:ctrlPressOffPitch(snum)
-			self:sendPitchRow(snum)
+			self:queueGUI("sendPitchRow", snum)
 		elseif self.ctrlflags.pitch then -- Else if PITCH is held, send PRESS-PITCH command.
 			self:ctrlPressPitch(snum, col)
-			self:sendPitchRow(snum)
+			self:queueGUI("sendPitchRow", snum)
 		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
 			self:ctrlPressLoop(snum, col)
 		else -- Else, check for commands that interact with GATE
@@ -206,7 +204,7 @@ return {
 		end
 
 		if self.ctrlflags.gate then
-			self:updateSeqButton(snum) -- Update on-screen GUI to reflect pending GATE
+			self:queueGUI("updateSeqButton", snum) -- Queue an update to the on-screen GUI to reflect pending GATE
 		end
 
 	end,
@@ -281,6 +279,11 @@ return {
 			(s - 1) % (self.gridy - 2), -- Grab button's on-page position, translated to Y
 			(self.seq[s].pointer and 1) or 0 -- Grab activity value, translated from boolean to 0/1
 		)
+	end,
+
+	-- Dummy version of the sendLED function, to strip off the 'self' call from updateGUI
+	sendSelfLED = function(self, x, y, s)
+		sendLED(x, y, s)
 	end,
 
 	-- Send the page-command row a new set of button data

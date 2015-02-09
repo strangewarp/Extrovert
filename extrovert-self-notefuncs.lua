@@ -60,7 +60,7 @@ return {
 		elseif n[2] == -10 then -- Local TEMPO command
 			self.bpm = n[3]
 			self:propagateBPM() -- Propagate new tick speed
-			self:updateControlTile("bpm") -- Update BPM tile in GUI
+			self:queueGUI("updateControlTile", "bpm") -- Update BPM tile in GUI
 		end
 		
 	end,
