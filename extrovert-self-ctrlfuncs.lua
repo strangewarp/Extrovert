@@ -26,7 +26,7 @@ return {
 	parsePress = function(self, s, b)
 
 		local point = self.seq[s].pointer
-		local chunk = #self.seq[s].tick / self.gridx
+		local chunk = math.floor(self.seq[s].total / self.gridx)
 
 		-- If the pointer is empty, set it to the beginning of the button's chunk.
 		-- If the pointer is filled, set it to a position in the button's chunk equivalent to its previous chunk-position.
@@ -47,7 +47,7 @@ return {
 	-- Parse an incoming PRESS-TRIG command
 	parsePressTrig = function(self, s, b)
 
-		local chunk = #self.seq[s].tick / self.gridx
+		local chunk = math.floor(self.seq[s].total / self.gridx)
 
 		-- Set the seq's pointer to the first tick in the button's corresponding chunk
 		self.seq[s].pointer = (chunk * (b - 1)) + 1
@@ -133,8 +133,8 @@ return {
 
 		-- Switch relative pointer positions
 		self.seq[s1].pointer, self.seq[s2].pointer =
-			self.seq[s2].pointer and math.ceil(self.seq[s2].pointer / (#self.seq[s2].tick / #self.seq[s1].tick)),
-			self.seq[s1].pointer and math.ceil(self.seq[s1].pointer / (#self.seq[s1].tick / #self.seq[s2].tick))
+			self.seq[s2].pointer and math.ceil(self.seq[s2].pointer / (self.seq[s2].total / self.seq[s1].total)),
+			self.seq[s1].pointer and math.ceil(self.seq[s1].pointer / (self.seq[s1].total / self.seq[s2].total))
 
 		-- Empty the incoming-command tables
 		self.seq[s1].incoming.cmd = false
@@ -169,7 +169,7 @@ return {
 			if point then -- If the sequence has a pointer...
 
 				-- Get the corresponding button for the sequence's pointer
-				local seqbut = math.ceil((point / #self.seq[s].tick) * self.gridx)
+				local seqbut = math.ceil((point / self.seq[s].total) * self.gridx)
 
 				-- If the seq-pointer falls outside of loop range, reposition it at the low location
 				if not rangeCheck(seqbut, self.seq[s].loop.low, self.seq[s].loop.high) then

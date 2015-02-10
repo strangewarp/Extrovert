@@ -8,6 +8,7 @@ local guifuncs = require('extrovert-guifuncs')
 local monomefuncs = require('extrovert-monomefuncs')
 
 local selfctrlfuncs = require('extrovert-self-ctrlfuncs')
+local selfgroovefuncs = require('extrovert-self-groovefuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
 local selfmonomefuncs = require('extrovert-self-monomefuncs')
@@ -29,14 +30,16 @@ function Extrovert:initialize(sel, atoms)
 	-- 3. Monome button
 	-- 4. Monome ADC
 	-- 5. Metronome-ticks in
-	-- 6. Custom loadfile name
-	-- 7. Custom savefile name
-	self.inlets = 7
+	-- 6. MIDI-IN
+	-- 7. Custom loadfile name
+	-- 8. Custom savefile name
+	self.inlets = 8
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
 	
 	funcsToNewContext(selfctrlfuncs, Extrovert)
+	funcsToNewContext(selfgroovefuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
 	funcsToNewContext(selfmonomefuncs, Extrovert)
@@ -261,8 +264,15 @@ function Extrovert:in_5(sel, m)
 
 end
 
+-- Catch an incoming command from an external MIDI device
+function Extrovert:in_6_list(t)
+
+
+
+end
+
 -- Load a MIDI file with a user-entered filename
-function Extrovert:in_6_symbol(s)
+function Extrovert:in_7_symbol(s)
 
 	self:loadMidiFile(s)
 
@@ -271,7 +281,7 @@ function Extrovert:in_6_symbol(s)
 end
 
 -- Save to a MIDI file, in the user-supplied directory, with a user-entered filename
-function Extrovert:in_7_symbol(s)
+function Extrovert:in_8_symbol(s)
 
 	self:saveMidiFile(s)
 

@@ -40,8 +40,9 @@ Installation:
 -- Sequences can contain notes from multiple MIDI channels, or even overlapping note-ons for the same channel and pitch. Extrovert's sustain-tracking system is pretty robust.
 -- If a MIDI track's length (e.g. the position of its end-track command) isn't a multiple of the Monome-grid's X-width, odd behavior might occur.
 
-Here's a short overview of the controls, as plotted out on an 8x8 Monome or Monome-compatible grid-controller:
+Here's a short overview of the controls:
 
+SLICE MODE:
 1 1 1 1 1 1 1 1
 2 2 2 2 2 2 2 2
 3 3 3 3 3 3 3 3
@@ -51,9 +52,26 @@ Here's a short overview of the controls, as plotted out on an 8x8 Monome or Mono
 P P P P P P P P
 O H L S G G G G
 
+OVERVIEW MODE:
+s s s s s s s s
+s s s s s s s s
+s s s s s s s s
+s s s s s s s s
+s s s s s s s s
+s s s s s s s s
+p p p p p p p p
+O H L S G G G G
+
+Slice Mode is Extrovert's default view. It is designed for beatslicing, with each of several rows filled by sequences laid out horizontally, and then a row to tab between pages of sequences, and then a row of various control-buttons.
+
+Overview Mode is an extension of Slice Mode, where every sequence is collapsed into a single button, so that they are all visible at once, but not slice-able.
+
 1-6: Sequences within the active page.
 -- Tap to trigger the sequence, or to jump to a sub-slice within an already-active sequence.
 -- Chord a sequence-button with buttons on the bottommost row for useful sequence-effects! (Described a few lines below)
+
+s: A whole sequence, represented by a single button in Overview Mode.
+-- Control-commands can be applied to sequences in Overview Mode, but if the command relies on some aspect of slice-view (e.g. LOOP, PITCH, and SCATTER), it will act as though the first button in a Slice Mode row was pressed. GATE, SWAP, OFF, and the combinations thereof will work as intended, though.
 
 P: Page buttons.
 -- Tab between pages of sequences.
@@ -87,7 +105,10 @@ G: GATE button.
 -- On a wider Monome, the layout should default to: 1 2 4 8 16 16 16 16 ... etc.
 -- Can be chorded with OFF, SWAP, PAGE, OFF-PAGE, and SWAP-PAGE.
 
-SPECIAL COMMANDS
+SLICE/OVERVIEW SPECIAL COMMANDS:
+
+SHIFT GATE: Chord OFF, SWAP, and GATE buttons.
+-- Advances the global GATE counter by a number of chunks corresponding to the pressed GATE button.
 
 SCATTER: Chord PITCH and LOOP buttons.
 -- When held down, toggles a new screen, where every button represents a bitwise value. The left half of each row represents a row's scatter amount, while the right half represents the allowed scatter distances. Like so:
@@ -98,9 +119,49 @@ SCATTER: Chord PITCH and LOOP buttons.
 -- PAGE chord: Sets a given scatter-bit, in a column across all sequences in the active page. The page-button, here, corresponds to a scatter-bit on the active page, rather than the button's usual page! Be aware!
 -- OFF-PAGE chord: Resets scatter-values to default for all sequences in the active page.
 
+GROOVE MODE:
+p p p p p p p L
+v v v v v v v H
+d d d d d d d d
+c c c c h h h h
+l l l l l l l l
+q q q q q q q q
+s s s s s s s s
+T R C E G G G G
 
+Groove Mode allows the user to compose or modify sequences inside of Extrovert, in a manner comparable to the workflow of certain grooveboxes.
 
-KEYBOARD COMMANDS
+p: Note pitch. Little-endian binary value, 0-127.
+
+v: Note base velocity. Little-endian binary value, 1-127.
+
+d: Note duration, in ticks. Little-endian binary value, 1-255.
+
+c: MIDI channel. Big-endian binary value, 0-15.
+
+h: Humanize-velocity rate. Applies a random value to the velocity of every note entered. Little-endian binary value, 0 or 16-128.
+
+l: Sequence length, in beats (tpq*4). Little-endian binary value, 1-128.
+
+q: Quantize amount. Entered notes will snap to the nearest Q-tick, where Q = max(1,round((tpq*4)/q)). Little-endian binary value, 0-255.
+
+s: Currently active sequence for Groove Mode editing. Little-endian binary value, 1 to ((gridy-2)*gridx)
+
+T: Test or track the current note.
+
+R: Toggle whether notes triggered by "T" are being recorded.
+
+C: Erase notes on the current channel, as the play-pointer moves through the sequence.
+
+E: Erase all notes, as the play-pointer moves through the sequence.
+
+G: Local gate-counter. Toggle to a given portion of the active sequence.
+
+L: Move sequence to lower index.
+
+H: Move sequence to higher index.
+
+KEYBOARD COMMANDS:
 
 MIDI PANIC: Space
 -- Ends all current MIDI sustains.
@@ -108,3 +169,5 @@ MIDI PANIC: Space
 LOAD HOTSEAT FILE: Shift-Tab-O
 -- Loads currently selected hotseat-file.
 
+SWITCH TO HOTSEAT FILE: Shift-number, or Shift-Tab-number
+-- Switches between hotseat files.

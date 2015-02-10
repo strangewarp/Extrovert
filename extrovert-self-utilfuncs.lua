@@ -6,7 +6,7 @@ return {
 
 		fname = fname or self.hotseats[self.activeseat]
 
-		self:stopTempo() -- Stop the tempo system, if applicable
+		self:stopTempo() -- Stop the tempo-metronome
 
 		local score, stats = {}, {}
 		local bpm, tpq = false, false
@@ -58,41 +58,40 @@ return {
 				elseif v[1] == "text_event" then
 					endpoint = math.max(endpoint, v[2])
 				end
-				extendTable(outtab, endpoint)
 
 				-- Convert various values into their Extrovert counterparts
 				if v[1] == "note" then
 					v[3] = math.max(1, v[3])
 					v[5] = v[5] or 40
 					endpoint = math.max(endpoint, v[2] + v[3])
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[4], 144, v[5], v[6], v[3]})
 				elseif v[1] == "channel_after_touch" then
 					endpoint = math.max(endpoint, vplus)
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[3], 160, v[4], 0, 0})
 				elseif v[1] == "control_change" then
 					endpoint = math.max(endpoint, vplus)
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[3], 176, v[4], v[5], 0})
 				elseif v[1] == "patch_change" then
 					endpoint = math.max(endpoint, vplus)
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[3], 192, v[4], 0, 0})
 				elseif v[1] == "key_after_touch" then
 					endpoint = math.max(endpoint, vplus)
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[3], 208, v[4], v[5], 0})
 				elseif v[1] == "pitch_wheel_change" then
 					endpoint = math.max(endpoint, vplus)
-					extendTable(outtab, endpoint)
+					outtab[vplus] = outtab[vplus] or {}
 					table.insert(outtab[vplus], {v[3], 224, v[4], 0, 0})
 				elseif v[1] == "set_tempo" then -- Grab tempo commands
 					if v[2] == 0 then -- Set global tempo
 						bpm = bpm or (60000000 / v[3])
 					else -- Insert local tempo command into sequence
 						endpoint = math.max(endpoint, vplus)
-						extendTable(outtab, endpoint)
+						outtab[vplus] = outtab[vplus] or {}
 						table.insert(outtab[vplus], {0, -10, 60000000 / v[3], 0, 0})
 					end
 				elseif v[1] == "track_name" then -- Post the track's name
@@ -105,19 +104,20 @@ return {
 
 			-- Insert padding ticks, to a value that is either modulo the Monome width, or modulo the Ticks-Per-Beat value
 			local padtobeat = self.prefs.file.padding == 1
-			if (#outtab > 0) and ((#outtab % self.gridx) ~= 0) then
+			if (endpoint % self.gridx) ~= 0 then
 				if padtobeat then
-					outtab = extendTable(outtab, #outtab + ((tpq * 4) - (#outtab % (tpq * 4))))
+					endpoint = endpoint + ((tpq * 4) - (endpoint % (tpq * 4)))
 				else
-					outtab = extendTable(outtab, #outtab + (self.gridx - (#outtab % self.gridx)))
+					endpoint = endpoint + (self.gridx - (endpoint % self.gridx))
 				end
 			end
 
 			-- Transfer the loaded sequence-table into the global sequences
 			self.seq[tracknum].tick = outtab
+			self.seq[tracknum].total = endpoint
 
 			-- Print information about the sequence
-			local beatsnum = roundNum((#outtab / tpq) / 4, 2)
+			local beatsnum = roundNum((endpoint / (tpq * 4)), 2)
 			if (beatsnum % 1) ~= 0 then
 				beatsnum = "~" .. beatsnum
 			end
@@ -131,7 +131,7 @@ return {
 
 		-- Reset global tick and longticks, for gating purposes
 		self.tick = 1
-		self.longticks = ((self.seq[1] ~= nil) and #self.seq[1].tick) or 192
+		self.longticks = self.seq[1].total
 		
 		pd.post("Loaded savefile \"" .. fileloc .. "\"!")
 		pd.post("Beats Per Minute: " .. self.bpm)
@@ -227,12 +227,10 @@ return {
 			gate = false,
 		}
 		
-		self.seq[i].tick = {}
-		for t = 1, self.gridx do -- Insert dummy ticks
-			self.seq[i].tick[t] = {}
-		end
-
+		self.seq[i].tick = {} -- Holds all notes in the sequence
 		self.seq[i].metatick = {} -- Holds a modified dupliate of the .tick table, to use when SCATTER is active
+
+		self.seq[i].total = self.gridx -- Total number of ticks in the sequence
 		
 		pd.post("Reset all flags and notes in sequence " .. i)
 

@@ -49,7 +49,7 @@ return {
 	-- Iterate through a sequence's incoming flags, increase its tick pointer under certain conditions, and send off all relevant notes
 	iterateSequence = function(self, s)
 
-		local ticks = #self.seq[s].tick
+		local ticks = self.seq[s].total
 		local chunk = ticks / self.gridx
 
 		-- Get the current column, or false if there is no active pointer, for later comparison
@@ -128,13 +128,9 @@ return {
 			return nil
 		end
 
-		local ticks = #self.seq[s].tick
+		local ticks = self.seq[s].total
 		local tempnotes = {}
 		local shiftnotes = {}
-
-		for i = 1, #self.seq[s].tick do
-			self.seq[s].metatick[i] = {}
-		end
 
 		-- Copy all commands from the original sequence, and store extra info on NOTE commands
 		for k, v in pairs(self.seq[s].tick) do
@@ -142,6 +138,7 @@ return {
 				if vv[2] == 144 then -- If this is a NOTE, increase NOTE-counter, and store its tempnotes-index
 					table.insert(tempnotes, {k, deepCopy(vv)})
 				else -- Else, for non-NOTE commands, put them straight into the meta-sequence
+					self.seq[s].metatick[k] = self.seq[s].metatick[k] or {} -- Build the tick's table if it's empty
 					table.insert(self.seq[s].metatick[k], deepCopy(vv)) -- Copy every command into a tempnotes table
 				end
 			end
@@ -157,6 +154,7 @@ return {
 		-- Put non-shifted tempnotes into the sequence's metatick table
 		for _, v in pairs(tempnotes) do
 			local tick, note = unpack(v)
+			self.seq[s].metatick[tick] = self.seq[s].metatick[tick] or {}
 			table.insert(self.seq[s].metatick[tick], note)
 		end
 
@@ -169,14 +167,15 @@ return {
 				local factor = table.remove(fdup, math.random(#fdup)) -- Get a random factor
 				local dist = self.tpq * factor -- Get a distance-value, of (TPQ * factor)
 				local newtick = (((tick + dist) - 1) % ticks) + 1 -- Get the note's new tick-position, wrapping to sequence boundaries
-				if #self.seq[s].metatick[newtick] == 0 then -- If the tick's metatick slot is empty...
-					table.insert(self.seq[s].metatick[newtick], note) -- Put the note in the metatick tick
+				if not self.seq[s].metatick[newtick] then -- If the tick's metatick slot is empty...
+					self.seq[s].metatick[newtick] = {note} -- Build the metatick tick's table, and put the note in there
 					didput = true -- Confirm that a note was placed
 					break -- Exit the while-loop
 				end
 			end
 			if not didput then -- If a note wasn't successfully placed, then place it in a random factor that overlaps with other note-starts
 				local newtick = (((tick + (self.tpq * self.seq[s].sfactors[math.random(#self.seq[s].sfactors)])) - 1) % ticks) + 1
+				self.seq[s].metatick[newtick] = self.seq[s].metatick[newtick] or {}
 				table.insert(self.seq[s].metatick[newtick], note)
 			end
 		end

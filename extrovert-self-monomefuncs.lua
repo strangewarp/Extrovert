@@ -314,7 +314,7 @@ return {
 	-- Send the Monome button-data for a single visible sequence-row
 	sendSeqRow = function(self, s)
 		local yrow = (s - 1) % (self.gridy - 2)
-		local subpoint = self.seq[s].pointer and (math.ceil(self.seq[s].pointer / (#self.seq[s].tick / self.gridx)) - 1)
+		local subpoint = self.seq[s].pointer and (math.ceil(self.seq[s].pointer / (self.seq[s].total / self.gridx)) - 1)
 		self:sendSimpleRow(subpoint, yrow)
 	end,
 
