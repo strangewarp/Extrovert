@@ -109,17 +109,17 @@ function Extrovert:initialize(sel, atoms)
 
 	self.g = { -- All groove mode flags and binary-value tables
 		pitch = {}, -- Note pitch (binary value, 8 bits, limit of 127)
-		pitchnum = 0,
+		pitchnum = 40,
 		velo = {}, -- Note velocity (binary value, 8 bits, limit of 127)
-		velonum = 0,
+		velonum = 127,
 		dur = {}, -- Note duration (binary value, 8+ bits, no limit)
-		durnum = 1,
+		durnum = 24,
 		chan = {}, -- MIDI channel (binary value, 4 bits, limit of 15)
 		channum = 0,
 		humanize = {}, -- Humanize amount (binary value, 4 bits, 16-128)
 		humanizenum = 0,
 		len = {}, -- Track length (len * tpq * 4) (binary value, 8 bits, limit of 128)
-		lennum = 0,
+		lennum = 1,
 		seq = {}, -- Sequence number (binary value, 8+ bits, limit of self.gridx*(self.gridy-2))
 		seqnum = 1,
 		quant = {}, -- Quantize amount (binary value, 8+ bits, fixed as max(1,round((tpq*4)/q)))
@@ -132,18 +132,15 @@ function Extrovert:initialize(sel, atoms)
 		lpress = false, -- Flag for: is "move sequence to lower index" button being pressed?
 		gate = false, -- Flag for: is a GATE button being pressed?
 	}
-	for i = 1, self.gridx do
-		self.g.pitch[i] = false
-		self.g.velo[i] = false
-		self.g.dur[i] = false
-		self.g.len[i] = false
-		self.g.seq[i] = false
-		self.g.quant[i] = false
-	end
-	for i = 1, math.floor(self.gridx / 2) do
-		self.g.chan[i] = false
-		self.g.humanize[i] = false
-	end
+	self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
+	self.g.velo = numToBools(self.g.velonum, false, 1, 8)
+	self.g.dur = numToBools(self.g.durnum, false, 1, 8)
+	self.g.chan = numToBools(self.g.channum, true, 1, 4)
+	self.g.humanize = numToBools(self.g.humanizenum, false, 1, 4)
+	self.g.len = numToBools(self.g.lennum, false, 1, 8)
+	self.g.seq = numToBools(self.g.seqnum, false, 1, 8)
+	self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
+
 	self.g.dur[1] = true
 	self.g.seq[1] = true
 	self.g.quant[1] = true

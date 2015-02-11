@@ -57,12 +57,15 @@ return {
 				self.g.len = numToBools(self.g.lennum, false, 1, 8)
 			elseif y == (self.gridy - 2) then -- Modify QUANTIZE bits
 				self.g.quant[x] = not self.g.quant[x]
-				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 0, 128)
+				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 1, 255)
 				self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
 			elseif y == (self.gridy - 1) then -- Modify ACTIVE SEQUENCE bits
 				self.g.seq[x] = not self.g.seq[x]
 				self.g.seqnum = boolsToNum(self.g.seq, false, 1, 1, (self.gridy - 2) * self.gridx)
-				self.g.seq = numToBools(self.g.seqnum, false, 1, 8)
+				self.g.seq = numToBools(self.g.seqnum, false, 1, self.gridx)
+				self.g.lennum = math.max(1, math.min(128, math.floor(self.seq[self.g.seqnum].total / (self.tpq * 4)))) -- Set length, in beats
+				self.seq[self.g.seqnum].total = self.g.lennum * (self.tpq * 4) -- Tweak the total ticks in seqs that don't match the TPQ*4 beat-size regime
+				self.g.len = numToBools(self.g.lennum, false, 1, 128)
 			end
 
 			pd.post("PITCH: "..self.g.pitchnum)--debugging

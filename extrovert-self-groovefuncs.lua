@@ -37,7 +37,14 @@ return {
 				}
 			end
 
+			self.g.lennum = math.max(1, math.min(128, math.floor(self.seq[s].total / (self.tpq * 4)))) -- Set length, in beats
+			self.seq[s].total = self.g.lennum * (self.tpq * 4) -- Tweak the total ticks in seqs that don't match the TPQ*4 beat-size regime
+
 			self.g.seqnum = s -- Set the user-selected sequnce to be the active Groove Mode sequence
+
+			-- Set the len and seq tables to reflect the changed values
+			self.g.len = numToBools(self.g.lennum, false, 1, 128)
+			self.g.seq = numToBools(self.g.seqnum, false, 1, self.gridx)
 
 			self.longticks = self.seq[s].total -- Set longticks to match the groove-active sequence
 
