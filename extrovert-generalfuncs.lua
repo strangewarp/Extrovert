@@ -1,6 +1,55 @@
 
 return {
-	
+
+	-- Interpret a table of booleans like a binary value, convert that value to a decimal number,
+	-- with each bit's value multiplied by "multi" (must be a multiple of 2, or defaults to 1), and bound it between "low" and "high".	
+	boolsToNum = function(bools, bigend, multi, low, high)
+
+		bigend = bigend ~= false
+		multi = ((multi and (multi >= 2) and ((multi % 2) == 0)) and multi) or 1
+		low = low or 0
+		high = high or math.huge
+
+		local bits = #bools
+		local total = 0
+
+		for k, v in pairs(bools) do
+			if v then
+				local key = (bigend and (k - 1)) or (bits - k)
+				total = total + math.max(1, 2 ^ (key * multi))
+			end
+		end
+
+		total = math.max(low, math.min(high, total))
+
+		return total
+
+	end,
+
+	-- Convert a number to a table of booleans
+	numToBools = function(num, bigend, multi, size)
+
+		num = num or 0
+		bigend = bigend ~= false
+		multi = ((multi and (multi >= 2) and ((multi % 2) == 0)) and multi) or 1
+		size = size or 8
+
+		local bools = {}
+		for i = size, 1, -1 do
+			local index = (bigend and (#bools + 1)) or 1
+			local val = 2 ^ (i * multi)
+			if (num % val) == 0 then
+				table.insert(bools, index, true)
+				num = num - val
+			else
+				table.insert(bools, index, false)
+			end
+		end
+
+		return bools
+
+	end,
+
 	-- Compare the contents of two tables of type <t = {v1 = v1, v2 = v2, ...}>, and return true only on an exact match.
 	crossCompare = function(t, t2)
 

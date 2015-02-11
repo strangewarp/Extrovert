@@ -11,7 +11,8 @@ local selfctrlfuncs = require('extrovert-self-ctrlfuncs')
 local selfgroovefuncs = require('extrovert-self-groovefuncs')
 local selfguifuncs = require('extrovert-self-guifuncs')
 local selfmetrofuncs = require('extrovert-self-metrofuncs')
-local selfmonomefuncs = require('extrovert-self-monomefuncs')
+local selfmonomeparsefuncs = require('extrovert-self-monomeparsefuncs')
+local selfmonomesendfuncs = require('extrovert-self-monomesendfuncs')
 local selfnotefuncs = require('extrovert-self-notefuncs')
 local selfseqfuncs = require('extrovert-self-seqfuncs')
 local selfutilfuncs = require('extrovert-self-utilfuncs')
@@ -42,7 +43,8 @@ function Extrovert:initialize(sel, atoms)
 	funcsToNewContext(selfgroovefuncs, Extrovert)
 	funcsToNewContext(selfguifuncs, Extrovert)
 	funcsToNewContext(selfmetrofuncs, Extrovert)
-	funcsToNewContext(selfmonomefuncs, Extrovert)
+	funcsToNewContext(selfmonomeparsefuncs, Extrovert)
+	funcsToNewContext(selfmonomesendfuncs, Extrovert)
 	funcsToNewContext(selfnotefuncs, Extrovert)
 	funcsToNewContext(selfseqfuncs, Extrovert)
 	funcsToNewContext(selfutilfuncs, Extrovert)
@@ -107,15 +109,28 @@ function Extrovert:initialize(sel, atoms)
 
 	self.g = { -- All groove mode flags and binary-value tables
 		pitch = {}, -- Note pitch (binary value, 8 bits, limit of 127)
+		pitchnum = 0,
 		velo = {}, -- Note velocity (binary value, 8 bits, limit of 127)
+		velonum = 0,
 		dur = {}, -- Note duration (binary value, 8+ bits, no limit)
+		durnum = 1,
 		chan = {}, -- MIDI channel (binary value, 4 bits, limit of 15)
+		channum = 0,
 		humanize = {}, -- Humanize amount (binary value, 4 bits, 16-128)
+		humanizenum = 0,
 		len = {}, -- Track length (len * tpq * 4) (binary value, 8 bits, limit of 128)
+		lennum = 0,
 		seq = {}, -- Sequence number (binary value, 8+ bits, limit of self.gridx*(self.gridy-2))
+		seqnum = 1,
 		quant = {}, -- Quantize amount (binary value, 8+ bits, fixed as max(1,round((tpq*4)/q)))
+		quantnum = 1,
+		track = false, -- Flag for: is "track/test note" button being pressed?
 		rec = false, -- Flag for: recording new notes enabled? (toggle button)
+		chanerase = false, -- Flag for: erasing notes only in the active channel ofthe active sequence
 		erase = false, -- Flag for: currently erasing notes in the active sequence as it plays through? (press-and-hold button)
+		hpress = false, -- Flag for: is "move sequence to higher index" button being pressed?
+		lpress = false, -- Flag for: is "move sequence to lower index" button being pressed?
+		gate = false, -- Flag for: is a GATE button being pressed?
 	}
 	for i = 1, self.gridx do
 		self.g.pitch[i] = false
@@ -131,6 +146,7 @@ function Extrovert:initialize(sel, atoms)
 	end
 	self.g.dur[1] = true
 	self.g.seq[1] = true
+	self.g.quant[1] = true
 
 	self.groove = false -- Tracks whether Groove Mode is toggled or not.
 	self.overview = false -- Tracks whether Overview Mode is toggled or not.

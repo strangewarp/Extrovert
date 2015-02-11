@@ -12,9 +12,11 @@ Installation:
 -- extrovert-metacommands.lua
 -- extrovert-monomefuncs.lua
 -- extrovert-self-ctrlfuncs.lua
+-- extrovert-self-groovefuncs.lua
 -- extrovert-self-guifuncs.lua
 -- extrovert-self-metrofuncs.lua
--- extrovert-self-monomefuncs.lua
+-- extrovert-self-monomeparsefuncs.lua
+-- extrovert-self-monomesendfuncs.lua
 -- extrovert-self-notefuncs.lua
 -- extrovert-self-seqfuncs.lua
 -- extrovert-self-utilfuncs.lua
@@ -120,8 +122,8 @@ SCATTER: Chord PITCH and LOOP buttons.
 -- OFF-PAGE chord: Resets scatter-values to default for all sequences in the active page.
 
 GROOVE MODE:
-p p p p p p p L
-v v v v v v v H
+p p p p p p p H
+v v v v v v v L
 d d d d d d d d
 c c c c h h h h
 l l l l l l l l
@@ -143,7 +145,7 @@ h: Humanize-velocity rate. Applies a random value to the velocity of every note 
 
 l: Sequence length, in beats (tpq*4). Little-endian binary value, 1-128.
 
-q: Quantize amount. Entered notes will snap to the nearest Q-tick, where Q = max(1,round((tpq*4)/q)). Little-endian binary value, 0-255.
+q: Quantize amount. Entered notes will snap to the nearest Q-tick, where Q = max(1,round((tpq*4)/q)). Little-endian binary value, 0-128.
 
 s: Currently active sequence for Groove Mode editing. Little-endian binary value, 1 to ((gridy-2)*gridx)
 
@@ -157,9 +159,9 @@ E: Erase all notes, as the play-pointer moves through the sequence.
 
 G: Local gate-counter. Toggle to a given portion of the active sequence.
 
-L: Move sequence to lower index.
-
 H: Move sequence to higher index.
+
+L: Move sequence to lower index.
 
 KEYBOARD COMMANDS:
 

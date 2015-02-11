@@ -4,14 +4,105 @@ return {
 	-- Parse a Monome button press
 	parseButtonPress = function(self, x, y, s)
 
-		if y == (self.gridy - 1) then -- Parse page-row commands
-			self:parsePageButton(x, s)
-		elseif y == self.gridy then -- Parse control-row commands
-			self:parseCommandButton(x, s) -- Toggle global command flags
-		else -- Parse sequence-button commands
-			self:parseSeqButton(x, y, s)
+		if self.groove then -- In Groove Mode...
+
+			self:parseGrooveButton(x, y, s) -- Parse the groove-mode buttons
+
+		else -- In Slice Mode and Overview Mode...
+
+			if y == (self.gridy - 1) then -- Parse page-row commands
+				self:parsePageButton(x, s)
+			elseif y == self.gridy then -- Parse control-row commands
+				self:parseCommandButton(x, s) -- Toggle global command flags
+			else -- Parse sequence-button commands
+				self:parseSeqButton(x, y, s)
+			end
+
 		end
 		
+	end,
+
+	-- Parse an incoming Groove Mode button from the Monome
+	parseGrooveButton = function(self, x, y, s)
+
+		local x1 = x + 1 -- Get 1-offset version of x
+
+		if s == 1 then -- If this is a down-keypress...
+
+			if y == (self.gridy - 7) then -- Modify PITCH bits
+				self.g.pitch[x1] = not self.g.pitch[x1]
+				self.g.pitchnum = boolsToNum(self.g.pitch, false, 1, 0, 127)
+				self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
+			elseif y == (self.gridy - 6) then -- Modify VELOCITY bits
+				self.g.velo[x1] = not self.g.velo[x1]
+				self.g.velonum = boolsToNum(self.g.velo, false, 1, 1, 127)
+				self.g.velo = numToBools(self.g.velonum, false, 1, 8)
+			elseif y == (self.gridy - 5) then -- Modify DURATION bits
+				self.g.dur[x1] = not self.g.dur[x1]
+				self.g.durnum = boolsToNum(self.g.dur, false, 1, 1, 255)
+				self.g.dur = numToBools(self.g.durnum, false, 1, 8)
+			elseif y == (self.gridy - 4) then -- Modify either MIDI CHANNEL or HUMANIZE bits
+				if x1 <= math.floor(self.gridx / 2) then -- Modify MIDI CHANNEL bits
+					self.g.chan[x1] = not self.g.chan[x1]
+					self.g.channum = boolsToNum(self.g.chan, true, 1, 0, 15)
+					self.g.chan = numToBools(self.g.channum, true, 1, 4)
+				else -- Modify HUMANIZE bits
+					self.g.humanize[x1] = not self.g.humanize[x1]
+					self.g.humanizenum = boolsToNum(self.g.humanize, false, 16, 16, 128)
+					self.g.humanize = numToBools(self.g.humanizenum, false, 16, 4)
+				end
+			elseif y == (self.gridy - 3) then -- Modify SEQUENCE LENGTH bits
+				self.g.len[x1] = not self.g.len[x1]
+				self.g.lennum = boolsToNum(self.g.len, false, 1, 1, 128)
+				self.g.len = numToBools(self.g.lennum, false, 1, 8)
+			elseif y == (self.gridy - 2) then -- Modify QUANTIZE bits
+				self.g.quant[x1] = not self.g.quant[x1]
+				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 0, 128)
+				self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
+			elseif y == (self.gridy - 1) then -- Modify ACTIVE SEQUENCE bits
+				self.g.seq[x1] = not self.g.seq[x1]
+				self.g.seqnum = boolsToNum(self.g.seq, false, 1, 1, (self.gridy - 2) * self.gridx)
+				self.g.seq = numToBools(self.g.seqnum, false, 1, 8)
+			end
+
+		end
+
+		if y == self.gridy then -- If this is a control-row keypress...
+			if x1 == 1 then -- Parse a TEST/TRACK command, for either an up or down keypress
+				self.g.track = ((s == 1) and (not self.g.track)) or self.g.track
+				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+					self:toggleGrooveMode()
+					return nil
+				end
+				if s == 1 then -- If this is a down-keystroke, play an example-note
+					self:playGrooveNote()
+					if self.g.rec then -- If recording is enabled, insert the groove-note
+						self:insertGrooveNote()
+					end
+				end
+			elseif x1 == 2 then -- Parse a RECORD-TOGGLE command
+				if s == 1 then -- If this is a down-keystroke, change the toggle's status
+					self.g.rec = not self.g.rec
+					if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+						self:toggleGrooveMode()
+						return nil
+					end
+				end
+			elseif x1 == 3 then -- Parse a CHANNEL-ERASE command
+				self.g.chanerase = ((s == 1) and (not self.g.chanerase)) or self.g.chanerase
+			elseif x1 == 4 then -- Parse an ERASE command
+				self.g.erase = ((s == 1) and (not self.g.erase)) or self.g.erase
+			else -- Parse a GATE command
+				local gval = math.max(1, 2 ^ (x1 - 5))
+				self.g.gate = self.g.gate + (gval * ((s * 2) - 1))
+				self.g.gate = (self.g.gate ~= 0) and self.g.gate
+				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+					self:toggleGrooveMode()
+					return nil
+				end
+			end
+		end
+
 	end,
 
 	-- Parse an incoming control-row command from the Monome
@@ -177,6 +268,11 @@ return {
 		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
 			self:ctrlPressOffScatter(snum)
 			self:queueGUI("sendScatterRow", snum)
+		elseif self.ctrlflags.pitch and self.ctrlflags.swap then -- If PITCH and SWAP are held, toggle into Groove Mode for that sequence
+			self:toggleGrooveMode(snum)
+			self:queueGUI("sendMetaGrid")
+			self:queueGUI("updateGUI")
+			return nil
 		elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If PITCH and LOOP are held, send SCATTER command.
 			self:ctrlPressScatter(snum, col)
 			self:queueGUI("sendScatterRow", snum)
@@ -207,196 +303,6 @@ return {
 			self:queueGUI("updateSeqButton", snum) -- Queue an update to the on-screen GUI to reflect pending GATE
 		end
 
-	end,
-
-	-- Spoof a series of x,y button presses, as held in a list
-	parseVirtualButtonPress = function(self, ...)
-		local arg = {...}
-		for s = 1, 0, -1 do -- Spoof all downstrokes, and then spoof all upstrokes, to allow keychords
-			for i = 1, #arg, 2 do
-				self:parseButtonPress(arg[i], arg[i + 1], s)
-			end
-		end
-	end,
-
-	-- Send the binary counting buttons for current tick position as related to GATE values
-	sendGateCountButtons = function(self)
-
-		-- Get the offset position of the last binary-counting button
-		local offset = 0
-		local multi = 1
-		while (multi * 2) <= self.gridx do
-			offset = offset + 1
-			multi = multi * 2
-		end
-
-		-- Based on tick position within the longest seq's bounds, display a binary value within the GATE buttons
-		local chunk = self.longticks / self.gridx
-		local cols = math.ceil(self.tick / chunk)
-		for i = 5 + offset, 5, -1 do
-			local igate = math.min(self.gridx, math.max(1, (2 ^ (i - 4)) / 2))
-			if (cols - igate) >= 0 then
-				sendLED(i - 1, self.gridy - 1, 1)
-				cols = cols - igate
-			else
-				sendLED(i - 1, self.gridy - 1, 0)
-			end
-		end
-
-	end,
-	
-	-- Refresh the sequence-buttons, in different ways depending on self.overview
-	sendMetaGrid = function(self)
-		local s = 1 -- Change overview-button to on
-		if self.overview then -- Overview Mode...
-			self:sendOverviewSeqButtons()
-		else -- Not Overview Mode...
-			s = 0 -- Change overview-button to off
-			self:sendVisibleSeqRows()
-		end
-	end,
-
-	-- Refresh a sequence's buttons, in different ways depending on self.overview
-	sendMetaSeqRow = function(self, s)
-		if self.overview then -- Overview Mode...
-			self:sendOverviewSeqLED(s)
-		else -- Not Overview Mode...
-			self:sendSeqRowIfVisible(s)
-		end
-	end,
-
-	-- Send all sequences to the Monome's buttons in overview mode
-	sendOverviewSeqButtons = function(self)
-		for i = 1, self.gridx * (self.gridy - 2) do
-			self:sendOverviewSeqLED(i)
-		end
-	end,
-
-	-- Send a single LED button representing an entire sequence, for overview-mode
-	sendOverviewSeqLED = function(self, s)
-		sendLED( -- Send the LED information to the Monome apparatus... (Note: this translates keys into columns aligned with their corresponding page buttons)
-			math.floor((s - 1) / (self.gridy - 2)), -- Grab button's page value, translated into X
-			(s - 1) % (self.gridy - 2), -- Grab button's on-page position, translated to Y
-			(self.seq[s].pointer and 1) or 0 -- Grab activity value, translated from boolean to 0/1
-		)
-	end,
-
-	-- Dummy version of the sendLED function, to strip off the 'self' call from updateGUI
-	sendSelfLED = function(self, x, y, s)
-		sendLED(x, y, s)
-	end,
-
-	-- Send the page-command row a new set of button data
-	sendPageRow = function(self)
-		if self.overview then
-			self:sendSimpleRow(false, self.gridy - 2, true)
-		else
-			self:sendSimpleRow(self.page - 1, self.gridy - 2, false)
-		end
-	end,
-
-	-- Send a sequence's SCATTER row
-	sendScatterRow = function(self, s)
-		self:sendBoolRow(s, self.seq[s].stab)
-	end,
-
-	-- Send a sequence's PITCH row
-	sendPitchRow = function(self, s)
-		self:sendBoolRow(s, self.seq[s].ptab)
-	end,
-
-	-- Send a row containing a sequence's boolean pitch-values
-	sendBoolRow = function(self, s, bools)
-		local yrow = (s - 1) % (self.gridy - 2)
-		self:sendBoolTabRow(yrow, bools)
-	end,
-
-	-- Send the Monome button-data for a single visible sequence-row
-	sendSeqRow = function(self, s)
-		local yrow = (s - 1) % (self.gridy - 2)
-		local subpoint = self.seq[s].pointer and (math.ceil(self.seq[s].pointer / (self.seq[s].total / self.gridx)) - 1)
-		self:sendSimpleRow(subpoint, yrow)
-	end,
-
-	-- Check whether a single sequence-row would be visible, before sending its Monome button-data
-	sendSeqRowIfVisible = function(self, s)
-		if rangeCheck((s - 1), (self.page - 1) * (self.gridy - 2), (self.page * (self.gridy - 2)) - 1) then -- If the sequence is upon a currently-visible page...
-			self:sendSeqRow(s) -- Send the sequence's Monome GUI row
-		end
-	end,
-
-	-- Send a row whose LED-bytes correspond to a table of booleans
-	sendBoolTabRow = function(self, yrow, bools)
-
-		local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
-		if self.prefs.monome.osctype == 0 then
-			rowbytes = {yrow} -- If in MonomeSerial communications mode, remove the X-offset value from the rowbytes table so that the byte sequence is properly formed
-		end
-
-		for b = 0, self.gridx - 8, 8 do
-			local outbyte = 0
-			for i = 1, 8 do
-				local k = b + i
-				if bools[k] then
-					outbyte = outbyte + math.max(1, 2 ^ (i - 1))
-				end
-			end
-			table.insert(rowbytes, outbyte)
-		end
-		
-		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
-		
-	end,
-
-	-- Send a row containing only one lit button to the Monome apparatus (incoming values should be 0-indexed!)
-	-- If xpoint is set to false, then a blank row is sent.
-	sendSimpleRow = function(self, xpoint, yrow, invert)
-
-		invert = invert or false
-
-		local rowbytes = {0, yrow} -- These bytes mean: "this command is offset by 0 spaces, and affects row number yrow"
-		if self.prefs.monome.osctype == 0 then
-			rowbytes = {yrow} -- If in MonomeSerial communications mode, remove the X-offset value from the rowbytes table so that the byte sequence is properly formed
-		end
-		
-		-- Generate a series of bytes, each holding the on-off values for an 8-button slice of the relevant row
-		for b = 0, self.gridx - 8, 8 do
-		
-			local pbyte = (invert and 255) or 0
-
-			-- If an xpoint was given...
-			if xpoint then
-
-				-- If the xpoint is within this row-chunk, highlight it based on Overview Mode style
-				if rangeCheck(xpoint, b, b + 7) then
-					pbyte = 2 ^ (xpoint - b)
-					if invert then -- If the style is inverted, invert the byte
-						pbyte = 255 - pbyte
-					end
-				end
-
-			end
-
-			-- Put the 8-button byte into the row-bytes table
-			table.insert(rowbytes, pbyte)
-
-		end
-		
-		pd.send("extrovert-monome-out-row", "list", rowbytes) -- Send the row-out command to the Puredata Monome-row apparatus
-		
-	end,
-
-	-- Send the Monome button-data for all visible sequence-rows
-	sendVisibleSeqRows = function(self)
-		for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
-			if self.ctrlflags.pitch and self.ctrlflags.loop then
-				self:sendScatterRow(i)
-			elseif self.ctrlflags.pitch then
-				self:sendPitchRow(i)
-			else
-				self:sendSeqRow(i)
-			end
-		end
 	end,
 
 	-- Initialize the parameters of the Puredata Monome apparatus
