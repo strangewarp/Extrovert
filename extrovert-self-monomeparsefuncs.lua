@@ -25,50 +25,54 @@ return {
 	-- Parse an incoming Groove Mode button from the Monome
 	parseGrooveButton = function(self, x, y, s)
 
-		local x1 = x + 1 -- Get 1-offset version of x
-
 		if s == 1 then -- If this is a down-keypress...
 
 			if y == (self.gridy - 7) then -- Modify PITCH bits
-				self.g.pitch[x1] = not self.g.pitch[x1]
+				self.g.pitch[x] = not self.g.pitch[x]
 				self.g.pitchnum = boolsToNum(self.g.pitch, false, 1, 0, 127)
 				self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
 			elseif y == (self.gridy - 6) then -- Modify VELOCITY bits
-				self.g.velo[x1] = not self.g.velo[x1]
+				self.g.velo[x] = not self.g.velo[x]
 				self.g.velonum = boolsToNum(self.g.velo, false, 1, 1, 127)
 				self.g.velo = numToBools(self.g.velonum, false, 1, 8)
 			elseif y == (self.gridy - 5) then -- Modify DURATION bits
-				self.g.dur[x1] = not self.g.dur[x1]
+				self.g.dur[x] = not self.g.dur[x]
 				self.g.durnum = boolsToNum(self.g.dur, false, 1, 1, 255)
 				self.g.dur = numToBools(self.g.durnum, false, 1, 8)
 			elseif y == (self.gridy - 4) then -- Modify either MIDI CHANNEL or HUMANIZE bits
-				if x1 <= math.floor(self.gridx / 2) then -- Modify MIDI CHANNEL bits
-					self.g.chan[x1] = not self.g.chan[x1]
+				local xhalf = math.floor(self.gridx / 2)
+				if x <= xhalf then -- Modify MIDI CHANNEL bits
+					self.g.chan[x] = not self.g.chan[x]
 					self.g.channum = boolsToNum(self.g.chan, true, 1, 0, 15)
 					self.g.chan = numToBools(self.g.channum, true, 1, 4)
 				else -- Modify HUMANIZE bits
-					self.g.humanize[x1] = not self.g.humanize[x1]
-					self.g.humanizenum = boolsToNum(self.g.humanize, false, 16, 16, 128)
+					local xmod = x - xhalf
+					self.g.humanize[xmod] = not self.g.humanize[xmod]
+					self.g.humanizenum = boolsToNum(self.g.humanize, false, 16, 0, 128)
 					self.g.humanize = numToBools(self.g.humanizenum, false, 16, 4)
 				end
 			elseif y == (self.gridy - 3) then -- Modify SEQUENCE LENGTH bits
-				self.g.len[x1] = not self.g.len[x1]
+				self.g.len[x] = not self.g.len[x]
 				self.g.lennum = boolsToNum(self.g.len, false, 1, 1, 128)
 				self.g.len = numToBools(self.g.lennum, false, 1, 8)
 			elseif y == (self.gridy - 2) then -- Modify QUANTIZE bits
-				self.g.quant[x1] = not self.g.quant[x1]
+				self.g.quant[x] = not self.g.quant[x]
 				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 0, 128)
 				self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
 			elseif y == (self.gridy - 1) then -- Modify ACTIVE SEQUENCE bits
-				self.g.seq[x1] = not self.g.seq[x1]
+				self.g.seq[x] = not self.g.seq[x]
 				self.g.seqnum = boolsToNum(self.g.seq, false, 1, 1, (self.gridy - 2) * self.gridx)
 				self.g.seq = numToBools(self.g.seqnum, false, 1, 8)
 			end
 
+			pd.post("PITCH: "..self.g.pitchnum)--debugging
+
+			self:queueGUI("sendGrooveBinRows")
+
 		end
 
 		if y == self.gridy then -- If this is a control-row keypress...
-			if x1 == 1 then -- Parse a TEST/TRACK command, for either an up or down keypress
+			if x == 1 then -- Parse a TEST/TRACK command, for either an up or down keypress
 				self.g.track = ((s == 1) and (not self.g.track)) or self.g.track
 				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
 					self:toggleGrooveMode()
@@ -80,7 +84,7 @@ return {
 						self:insertGrooveNote()
 					end
 				end
-			elseif x1 == 2 then -- Parse a RECORD-TOGGLE command
+			elseif x == 2 then -- Parse a RECORD-TOGGLE command
 				if s == 1 then -- If this is a down-keystroke, change the toggle's status
 					self.g.rec = not self.g.rec
 					if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
@@ -88,13 +92,13 @@ return {
 						return nil
 					end
 				end
-			elseif x1 == 3 then -- Parse a CHANNEL-ERASE command
+			elseif x == 3 then -- Parse a CHANNEL-ERASE command
 				self.g.chanerase = ((s == 1) and (not self.g.chanerase)) or self.g.chanerase
-			elseif x1 == 4 then -- Parse an ERASE command
+			elseif x == 4 then -- Parse an ERASE command
 				self.g.erase = ((s == 1) and (not self.g.erase)) or self.g.erase
 			else -- Parse a GATE command
-				local gval = math.max(1, 2 ^ (x1 - 5))
-				self.g.gate = self.g.gate + (gval * ((s * 2) - 1))
+				local gval = math.max(1, 2 ^ (x - 5))
+				self.g.gate = (self.g.gate or 0) + (gval * ((s * 2) - 1))
 				self.g.gate = (self.g.gate ~= 0) and self.g.gate
 				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
 					self:toggleGrooveMode()
@@ -121,17 +125,17 @@ return {
 		self.pageswap = false
 
 		if x == 1 then -- Parse OFF button
-			self.ctrlflags.off = flagbool
+			self.slice.off = flagbool
 		elseif x == 2 then -- Parse PITCH-SHIFT button
-			self.ctrlflags.pitch = flagbool
+			self.slice.pitch = flagbool
 			self:queueGUI("sendVisibleSeqRows")
 		elseif x == 3 then -- Parse LOOP button
-			self.ctrlflags.loop = flagbool
-			if self.ctrlflags.pitch then
+			self.slice.loop = flagbool
+			if self.slice.pitch then
 				self:queueGUI("sendVisibleSeqRows")
 			end
 		elseif x == 4 then -- Parse SWAP button
-			self.ctrlflags.swap = flagbool
+			self.slice.swap = flagbool
 		elseif rangeCheck(x, 5, self.gridx) then -- Parse GATE buttons
 
 			-- Left to right on 8 width: 1, 2, 4, 8
@@ -143,10 +147,10 @@ return {
 				local key = math.min(self.gridx, math.max(1, (2 ^ (x - 4)) / 2))
 
 				-- If a "change global gate" command is given, advance the global gate-value by the gate-button value.
-				if self.ctrlflags.off and self.ctrlflags.swap then
+				if self.slice.off and self.slice.swap then
 					self.tick = (((self.tick + ((self.longticks / self.gridx) * key)) - 1) % self.longticks) + 1
 				else -- Else, if this is a regular gate-button-press...
-					self.ctrlflags.gate = key -- Set the GATE command to the corresponding key-value
+					self.slice.gate = key -- Set the GATE command to the corresponding key-value
 					for i = 5, self.gridx do -- Turn LEDs on and off, based on which button is held
 						self:queueGUI("sendSelfLED", i - 1, self.gridy - 1, ((x == i) and 1) or 0)
 					end
@@ -155,7 +159,7 @@ return {
 			else -- Else, if this is an up keystroke...
 
 				-- Unset the GATE value
-				self.ctrlflags.gate = false
+				self.slice.gate = false
 
 				-- Revert to displaying the GATE counter
 				self:queueGUI("sendGateCountButtons")
@@ -176,50 +180,50 @@ return {
 
 		if s == 1 then -- On down-keystrokes...
 
-			if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held...
+			if self.slice.off and self.slice.pitch and self.slice.loop then -- If OFF, PITCH, and LOOP are held...
 
 				-- Reset all SCATTER values for every sequence on the page
 				self:ctrlPageOffScatter(x)
 				self:queueGUI("sendVisibleSeqRows")
 
-			elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If both PITCH and LOOP are held...
+			elseif self.slice.pitch and self.slice.loop then -- If both PITCH and LOOP are held...
 
 				-- Set a scatter-bit for every sequence on the page
 				self:ctrlPageScatter(self.page, x)
 				self:queueGUI("sendVisibleSeqRows")
 
-			elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If both OFF and PITCH are held...
+			elseif self.slice.off and self.slice.pitch then -- If both OFF and PITCH are held...
 
 				-- Reset all PITCH values for every sequence on the page
 				self:ctrlPageOffPitch(x)
 				self:queueGUI("sendVisibleSeqRows")
 
-			elseif self.ctrlflags.off then -- If OFF is held...
+			elseif self.slice.off then -- If OFF is held...
 
 				-- If GATE is also held, send PAGE-GATE-OFF command. Else send PAGE-OFF command.
-				if self.ctrlflags.gate then
+				if self.slice.gate then
 					self:ctrlPageGateOff(x)
 				else
 					self:ctrlPageOff(x)
 				end
 
-			elseif self.ctrlflags.pitch then -- If PITCH is held...
+			elseif self.slice.pitch then -- If PITCH is held...
 
 				-- Set a pitch-bit for every sequence on the active page
 				self:ctrlPagePitch(self.page, x)
 				self:queueGUI("sendVisibleSeqRows")
 
-			elseif self.ctrlflags.swap then -- If OFF is not held, but SWAP is held...
+			elseif self.slice.swap then -- If OFF is not held, but SWAP is held...
 
 				-- If GATE is also held, send PAGE-GATE-SWAP command. Else send PAGE-SWAP command.
-				if self.ctrlflags.gate then
+				if self.slice.gate then
 					self:ctrlPageGateSwap(x)
 					self:queueGUI("updateSeqPage", x)
 				else
 					self:ctrlPageSwap(x)
 				end
 
-			elseif self.ctrlflags.gate then -- If neither OFF nor SWAP is held, but GATE is held, then send PAGE-GATE command.
+			elseif self.slice.gate then -- If neither OFF nor SWAP is held, but GATE is held, then send PAGE-GATE command.
 
 				self:ctrlPageGate(x)
 
@@ -239,7 +243,7 @@ return {
 
 			self:queueGUI("sendMetaGrid") -- Send the seq-rows to the Monome, for any mode.
 
-			if self.ctrlflags.gate then
+			if self.slice.gate then
 				self:queueGUI("updateSeqPage", x) -- Queue an update to the on-screen GUI to reflect a pending GATE command
 			end
 
@@ -265,33 +269,32 @@ return {
 			col = x -- Match the col-value to the column of the button that has been pressed
 		end
 
-		if self.ctrlflags.off and self.ctrlflags.pitch and self.ctrlflags.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
+		if self.slice.off and self.slice.pitch and self.slice.loop then -- If OFF, PITCH, and LOOP are held, send OFF-SCATTER command.
 			self:ctrlPressOffScatter(snum)
 			self:queueGUI("sendScatterRow", snum)
-		elseif self.ctrlflags.pitch and self.ctrlflags.swap then -- If PITCH and SWAP are held, toggle into Groove Mode for that sequence
+		elseif self.slice.pitch and self.slice.swap then -- If PITCH and SWAP are held, toggle into Groove Mode for that sequence
 			self:toggleGrooveMode(snum)
 			self:queueGUI("sendMetaGrid")
-			self:queueGUI("updateGUI")
 			return nil
-		elseif self.ctrlflags.pitch and self.ctrlflags.loop then -- If PITCH and LOOP are held, send SCATTER command.
+		elseif self.slice.pitch and self.slice.loop then -- If PITCH and LOOP are held, send SCATTER command.
 			self:ctrlPressScatter(snum, col)
 			self:queueGUI("sendScatterRow", snum)
-		elseif self.ctrlflags.off and self.ctrlflags.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
+		elseif self.slice.off and self.slice.pitch then -- If OFF and PITCH are held, send PRESS-OFF-PITCH command.
 			self:ctrlPressOffPitch(snum)
 			self:queueGUI("sendPitchRow", snum)
-		elseif self.ctrlflags.pitch then -- Else if PITCH is held, send PRESS-PITCH command.
+		elseif self.slice.pitch then -- Else if PITCH is held, send PRESS-PITCH command.
 			self:ctrlPressPitch(snum, col)
 			self:queueGUI("sendPitchRow", snum)
-		elseif self.ctrlflags.loop then -- Else if LOOP is held, send PRESS-LOOP command.
+		elseif self.slice.loop then -- Else if LOOP is held, send PRESS-LOOP command.
 			self:ctrlPressLoop(snum, col)
 		else -- Else, check for commands that interact with GATE
 			self:ctrlGate(snum) -- Apply the global gate-value to the sequence, whatever the global gate-value is
-			if self.ctrlflags.off then -- Else if OFF is held, send PRESS-OFF command.
+			if self.slice.off then -- Else if OFF is held, send PRESS-OFF command.
 				self:ctrlPressOff(snum)
-			elseif self.ctrlflags.swap then -- Else if SWAP is held, send PRESS-SWAP command.
+			elseif self.slice.swap then -- Else if SWAP is held, send PRESS-SWAP command.
 				self:ctrlPressSwap(snum)
 			else -- Else, if no control-buttons are held (aside from GATE, optionally), send a PRESS command.
-				if self.ctrlflags.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
+				if self.slice.gate then -- If GATE is held, send the PRESS as a TRIG command, to prevent accidental offsets
 					self:ctrlPressTrig(snum, col)
 				else -- Else, if GATE isn't held, send a regular PRESS command
 					self:ctrlPress(snum, col)
@@ -299,7 +302,7 @@ return {
 			end
 		end
 
-		if self.ctrlflags.gate then
+		if self.slice.gate then
 			self:queueGUI("updateSeqButton", snum) -- Queue an update to the on-screen GUI to reflect pending GATE
 		end
 

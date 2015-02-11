@@ -14,7 +14,7 @@ return {
 	-- Send the binary counting buttons for current tick position as related to GATE values
 	sendGateCountButtons = function(self)
 
-		local bound = (self.groove and self.seq[self.g.seq].total) or self.longticks
+		local bound = (self.groove and self.seq[self.g.seqnum].total) or self.longticks
 
 		-- Get the offset position of the last binary-counting button
 		local offset = 0
@@ -72,17 +72,17 @@ return {
 	sendGrooveBinRows = function(self)
 
 		local combine = deepCopy(self.g.chan)
-		for k, v in ipairs(self.g.humanize) do
+		for _, v in ipairs(self.g.humanize) do
 			combine[#combine + 1] = v
 		end
 
-		self:sendBoolTabRow(self.gridy - 7, self.g.pitch)
-		self:sendBoolTabRow(self.gridy - 6, self.g.velo)
-		self:sendBoolTabRow(self.gridy - 5, self.g.dur)
-		self:sendBoolTabRow(self.gridy - 4, combine)
-		self:sendBoolTabRow(self.gridy - 3, self.g.len)
-		self:sendBoolTabRow(self.gridy - 2, self.g.quant)
-		self:sendBoolTabRow(self.gridy - 1, self.g.seq)
+		self:sendBoolTabRow(self.gridy - 8, self.g.pitch)
+		self:sendBoolTabRow(self.gridy - 7, self.g.velo)
+		self:sendBoolTabRow(self.gridy - 6, self.g.dur)
+		self:sendBoolTabRow(self.gridy - 5, combine)
+		self:sendBoolTabRow(self.gridy - 4, self.g.len)
+		self:sendBoolTabRow(self.gridy - 3, self.g.quant)
+		self:sendBoolTabRow(self.gridy - 2, self.g.seq)
 
 	end,
 
@@ -236,9 +236,9 @@ return {
 	-- Send the Monome button-data for all visible sequence-rows
 	sendVisibleSeqRows = function(self)
 		for i = ((self.page - 1) * (self.gridy - 2)) + 1, self.page * (self.gridy - 2) do
-			if self.ctrlflags.pitch and self.ctrlflags.loop then
+			if self.slice.pitch and self.slice.loop then
 				self:sendScatterRow(i)
-			elseif self.ctrlflags.pitch then
+			elseif self.slice.pitch then
 				self:sendPitchRow(i)
 			else
 				self:sendSeqRow(i)

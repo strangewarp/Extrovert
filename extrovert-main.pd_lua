@@ -53,7 +53,7 @@ function Extrovert:initialize(sel, atoms)
 
 	self.prefs = self:dofile("extrovert-prefs.lua") -- Get user prefs to reflect the user's particular setup
 	
-	self.ctrlflags = { -- Holds all control-flags, which correspond to the control-buttons on the Monome
+	self.slice = { -- Holds all control-flags, which correspond to the control-buttons on the Monome
 		off = false,
 		pitch = false,
 		loop = false,

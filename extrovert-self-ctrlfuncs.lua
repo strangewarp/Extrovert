@@ -14,7 +14,7 @@ return {
 
 	-- Assign an incoming GATE-value to a given sequence
 	ctrlGate = function(self, s)
-		self.seq[s].incoming.gate = self.ctrlflags.gate
+		self.seq[s].incoming.gate = self.slice.gate
 	end,
 
 	-- Build an incoming table based on a PRESS command

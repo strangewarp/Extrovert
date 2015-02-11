@@ -15,12 +15,20 @@ return {
 
 		for k, v in pairs(bools) do
 			if v then
-				local key = (bigend and (k - 1)) or (bits - k)
-				total = total + math.max(1, 2 ^ (key * multi))
+				local key = (bigend and (bits - k)) or (k - 1)
+				total = total + (math.max(1, 2 ^ key) * multi)
 			end
 		end
 
 		total = math.max(low, math.min(high, total))
+
+		pd.post("BOOLCAP: "..#bools)--debugging
+		local testbools = deepCopy(bools)--debugging
+		for k, v in pairs(testbools) do--debugging
+			testbools[k] = tostring(v)--debugging
+		end
+		pd.post("BOOLS: "..table.concat(testbools, ", "))--debugging
+		pd.post("BOOL-TO-NUM: "..total)--debugging
 
 		return total
 
@@ -30,21 +38,37 @@ return {
 	numToBools = function(num, bigend, multi, size)
 
 		num = num or 0
+
+		local bools = {}
+
+		if num == 0 then
+			for i = 1, size do
+				bools[i] = false
+			end
+			return bools
+		end
+
 		bigend = bigend ~= false
 		multi = ((multi and (multi >= 2) and ((multi % 2) == 0)) and multi) or 1
 		size = size or 8
 
-		local bools = {}
-		for i = size, 1, -1 do
+		for i = (bigend and 1) or size, (bigend and size) or 1, (bigend and 1) or -1 do
 			local index = (bigend and (#bools + 1)) or 1
-			local val = 2 ^ (i * multi)
-			if (num % val) == 0 then
+			local key = (bigend and (size - i)) or (i - 1)
+			local val = math.max(1, 2 ^ key) * multi
+			if val <= num then
 				table.insert(bools, index, true)
 				num = num - val
 			else
 				table.insert(bools, index, false)
 			end
 		end
+
+		local testbools = deepCopy(bools)--debugging
+		for k, v in pairs(testbools) do--debugging
+			testbools[k] = tostring(v)--debugging
+		end
+		pd.post("NEW-BOOLS: "..table.concat(testbools, ", "))--debugging
 
 		return bools
 

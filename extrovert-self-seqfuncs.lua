@@ -30,7 +30,7 @@ return {
 		self.tick = (self.tick % self.longticks) + 1
 
 		-- If the GATE button isn't held, and the current tick is the first tick in a new column, update the GATE counting buttons
-		if (not self.ctrlflags.gate)
+		if (not self.slice.gate)
 		and (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
 		then
 			self:queueGUI("sendGateCountButtons")
@@ -112,7 +112,7 @@ return {
 
 		-- If the seq's active column has shifted or been emptied, send an updated sequence row to the Monome apparatus
 		local newcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
-		if not self.ctrlflags.pitch then
+		if not self.slice.pitch then
 			if newcol ~= oldcol then
 				self:queueGUI("sendMetaSeqRow", s)
 			end
