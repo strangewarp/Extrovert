@@ -82,10 +82,7 @@ return {
 					return nil
 				end
 				if s == 1 then -- If this is a down-keystroke, play an example-note
-					self:playGrooveNote()
-					if self.g.rec then -- If recording is enabled, insert the groove-note
-						self:insertGrooveNote()
-					end
+					self:insertGrooveNote()
 				end
 			elseif x == 2 then -- Parse a RECORD-TOGGLE command
 				if s == 1 then -- If this is a down-keystroke, change the toggle's status

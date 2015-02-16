@@ -56,17 +56,40 @@ return {
 
 	end,
 
-	-- Play the current Groove Mode note
-	playGrooveNote = function(self)
-
-
-
-	end,
-
 	-- Insert the current Groove Mode note
 	insertGrooveNote = function(self)
 
+		local veloshift = math.max(1, math.min(127, self.g.velonum + roundNum(math.random(0, self.humanizenum) - (self.humanizenum / 2))))
 
+		self:noteParse({self.g.channum, 144, self.g.pitchnum, veloshift, self.g.durnum})
+
+		if self.g.rec then -- If Groove Mode is toggled to RECORD...
+
+			local s = self.g.seqnum
+			local p = self.seq[s].pointer
+			local pminus = p - 1
+			local tot = self.seq[s].total
+			local quant = math.max(1, roundNum((self.tpq * 4) / self.g.quantnum))
+			local chunk = roundNum(tot / quant)
+			local lessamt = pminus % chunk
+			local moreamt = chunk - pminus
+			local dist = ((moreamt < lessamt) and moreamt) or -lessamt
+			local t = (((p + dist) - 1) % tot) + 1
+
+			-- Build the tick's table, if it's nil
+			self.seq[s].tick[t] = self.seq[s].tick[t] or {}
+
+			-- If any notes are on the same pitch, tick, and channel, then remove them
+			local notes = self.seq[s].tick[t]
+			for i = #notes, 1, -1 do
+				if (notes[i][3] == self.g.pitchnum) and (notes[i][1] == self.g.channum) then
+					table.remove(self.seq[s].tick[t], i)
+				end
+			end
+
+			table.insert(self.seq[s].tick[t], {self.g.channum, 144, self.g.pitchnum, veloshift, self.g.durnum})
+
+		end
 
 	end,
 
