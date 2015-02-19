@@ -22,14 +22,6 @@ return {
 
 		total = math.max(low, math.min(high, total))
 
-		pd.post("BOOLCAP: "..#bools)--debugging
-		local testbools = deepCopy(bools)--debugging
-		for k, v in pairs(testbools) do--debugging
-			testbools[k] = tostring(v)--debugging
-		end
-		pd.post("BOOLS: "..table.concat(testbools, ", "))--debugging
-		pd.post("BOOL-TO-NUM: "..total)--debugging
-
 		return total
 
 	end,
@@ -63,12 +55,6 @@ return {
 				table.insert(bools, index, false)
 			end
 		end
-
-		local testbools = deepCopy(bools)--debugging
-		for k, v in pairs(testbools) do--debugging
-			testbools[k] = tostring(v)--debugging
-		end
-		pd.post("NEW-BOOLS: "..table.concat(testbools, ", "))--debugging
 
 		return bools
 

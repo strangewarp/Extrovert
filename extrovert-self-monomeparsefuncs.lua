@@ -68,16 +68,15 @@ return {
 				self.g.len = numToBools(self.g.lennum, false, 1, 128)
 			end
 
-			pd.post("PITCH: "..self.g.pitchnum)--debugging
-
 			self:queueGUI("sendGrooveBinRows")
 
 		end
 
 		if y == self.gridy then -- If this is a control-row keypress...
+
 			if x == 1 then -- Parse a TEST/TRACK command, for either an up or down keypress
-				self.g.track = ((s == 1) and (not self.g.track)) or self.g.track
-				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+				self.g.track = s == 1
+				if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
 					self:toggleGrooveMode()
 					return nil
 				end
@@ -87,24 +86,29 @@ return {
 			elseif x == 2 then -- Parse a RECORD-TOGGLE command
 				if s == 1 then -- If this is a down-keystroke, change the toggle's status
 					self.g.rec = not self.g.rec
-					if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+					if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
 						self:toggleGrooveMode()
 						return nil
 					end
 				end
 			elseif x == 3 then -- Parse a CHANNEL-ERASE command
-				self.g.chanerase = ((s == 1) and (not self.g.chanerase)) or self.g.chanerase
+				self.g.chanerase = s == 1
 			elseif x == 4 then -- Parse an ERASE command
-				self.g.erase = ((s == 1) and (not self.g.erase)) or self.g.erase
+				self.g.erase = s == 1
 			else -- Parse a GATE command
 				local gval = math.max(1, 2 ^ (x - 5))
 				self.g.gate = (self.g.gate or 0) + (gval * ((s * 2) - 1))
 				self.g.gate = (self.g.gate ~= 0) and self.g.gate
-				if self.g.track and self.g.rec and self.g.gate then -- If TOGGLE GROOVE keychord is hit, then toggle out of Groove Mode
+				if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
 					self:toggleGrooveMode()
 					return nil
 				end
 			end
+
+			if x <= 4 then -- If this is a command-button press, refresh the command-keys
+				self:queueGUI("sendGrooveCommandKeys")
+			end
+
 		end
 
 	end,

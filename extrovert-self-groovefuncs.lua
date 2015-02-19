@@ -35,6 +35,9 @@ return {
 					low = false,
 					high = false,
 				}
+				if self.seq[i].pointer then
+					self.seq[i].pointer = 1 -- Reset the sequence's internal tick-pointer value, if it's playing
+				end
 			end
 
 			self.g.lennum = math.max(1, math.min(128, math.floor(self.seq[s].total / (self.tpq * 4)))) -- Set length, in beats
@@ -48,19 +51,32 @@ return {
 
 			self.longticks = self.seq[s].total -- Set longticks to match the groove-active sequence
 
+			-- Clear any tabbed swap and pageswap values
+			self.swap = false
+			self.pageswap = false
+
 		end
 
 		self.tick = 1 -- Reset global tick-counter
 
 		self.groove = not self.groove
 
+		self:queueGUI("sendMetaGrid") -- Send full GUI
+
 	end,
 
 	-- Insert the current Groove Mode note
 	insertGrooveNote = function(self)
 
-		local veloshift = math.max(1, math.min(127, self.g.velonum + roundNum(math.random(0, self.humanizenum) - (self.humanizenum / 2))))
+		local veloshift = math.max(1, math.min(127, self.g.velonum + roundNum(math.random(0, self.g.humanizenum) - (self.g.humanizenum / 2))))
 
+		pd.post(--debugging
+			"NOTE SEND: "
+			.. "chan " .. self.g.channum
+			.. ", pitch " .. self.g.pitchnum
+			.. ", velo " .. veloshift
+			.. ", duration " .. self.g.durnum
+		)--debugging
 		self:noteParse({self.g.channum, 144, self.g.pitchnum, veloshift, self.g.durnum})
 
 		if self.g.rec then -- If Groove Mode is toggled to RECORD...
@@ -70,7 +86,7 @@ return {
 			local pminus = p - 1
 			local tot = self.seq[s].total
 			local quant = math.max(1, roundNum((self.tpq * 4) / self.g.quantnum))
-			local chunk = roundNum(tot / quant)
+			local chunk = math.max(1, ((quant == 0) and 1) or roundNum(tot / quant))
 			local lessamt = pminus % chunk
 			local moreamt = chunk - pminus
 			local dist = ((moreamt < lessamt) and moreamt) or -lessamt
@@ -88,6 +104,31 @@ return {
 			end
 
 			table.insert(self.seq[s].tick[t], {self.g.channum, 144, self.g.pitchnum, veloshift, self.g.durnum})
+
+		end
+
+	end,
+
+	-- Clear notes from the tick if any of the Groove Mode erase-commands are active
+	clearGrooveTick = function(self)
+
+		if self.g.erase or self.g.chanerase then
+
+			local chan = self.g.chanerase and self.g.channum
+			local s = self.g.seqnum
+			local p = self.seq[s].pointer
+
+			if self.seq[s].tick[p] then -- If there are any commands on the present tick within the active groove sequence...
+				for i = #self.seq[s].tick[p], 1, -1 do -- For every command within the tick...
+					local note = self.seq[s].tick[p][i]
+					if (not chan) or (note[1] == chan) then -- If all channels are being erased, or if this note's channel matches a specific channel being erased...
+						table.remove(self.seq[s].tick[p], i) -- Remove the note from the tick
+					end
+				end
+				if #self.seq[s].tick[p] == 0 then -- If tick was emptied of notes...
+					self.seq[s].tick[p] = nil -- Unset the tick's table
+				end
+			end
 
 		end
 

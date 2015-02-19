@@ -29,6 +29,10 @@ return {
 		-- Increment global tick, bounded by global gate-size
 		self.tick = (self.tick % self.longticks) + 1
 
+		if self.groove then -- If Groove Mode is active...
+			self:clearGrooveTick() -- Clear notes from the tick if any of the Groove Mode erase-commands are active
+		end
+
 		-- If the GATE button isn't held, and the current tick is the first tick in a new column, update the GATE counting buttons
 		if (not self.slice.gate)
 		and (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
@@ -36,8 +40,7 @@ return {
 			self:queueGUI("sendGateCountButtons")
 		end
 
-		-- Decay all currently-active sustains
-		self:decayAllSustains()
+		self:decayAllSustains() -- Decay all currently-active sustains
 
 		-- Send all regular commands within all sequences, and check against longseq
 		for i = 1, (self.gridy - 2) * self.gridx do

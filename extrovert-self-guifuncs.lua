@@ -4,11 +4,7 @@ return {
 	-- Update all sequences in the GUI that have been listed as needing updates
 	updateGUI = function(self)
 		for k, v in pairs(self.guiqueue) do
-			if #v == 0 then
-				pd.post("EMPTY FUNC TABLE")--debugging
-			end
 			local c = table.remove(v, 1)
-			pd.post("FUNC: "..c)--debugging
 			self[c](self, unpack(v))
 		end
 		self.guiqueue = {}

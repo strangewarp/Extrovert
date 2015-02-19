@@ -65,7 +65,7 @@ return {
 	sendGroovePanel = function(self)
 		self:sendGrooveBinRows()
 		self:sendGrooveCommandKeys()
-		self:sendGrooveGateKeys()
+		self:sendGateCountButtons()
 	end,
 
 	-- Sen all binary-value rows for the Groove Mode view
@@ -102,13 +102,6 @@ return {
 		-- Send top-right corner buttons
 		sendLED(x, self.gridy - 8, (self.g.hpress and 1) or 0)
 		sendLED(x, self.gridy - 7, (self.g.lpress and 1) or 0)
-
-	end,
-
-	-- Send all GATE keys for the Groove Mode view
-	sendGrooveGateKeys = function(self)
-
-
 
 	end,
 
