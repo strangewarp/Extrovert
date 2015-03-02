@@ -10,8 +10,9 @@ return {
 		end
 
 		-- If the global tick doesn't correspond to a sequence's incoming GATE size, then there is no match, so return false
-		local curgate = math.floor(self.gridx * (self.tick / self.longticks))
-		local longchunk = self.longticks / self.gridx
+		local bound = self.seq[(self.groove and self.g.seqnum) or 1].total
+		local curgate = math.floor(self.gridx * (self.tick / bound))
+		local longchunk = bound / self.gridx
 		local tickmatch = (self.tick - 1) % longchunk
 		local gatematch = curgate % self.seq[s].incoming.gate
 		if (gatematch ~= 0) or (tickmatch ~= 0) then
@@ -26,16 +27,41 @@ return {
 	-- Cycle through all MIDI commands on the active tick within every active sequence
 	iterateAllSequences = function(self)
 
-		-- Increment global tick, bounded by global gate-size
-		self.tick = (self.tick % self.longticks) + 1
+		local bound = self.seq[(self.groove and self.g.seqnum) or 1].total -- Get current boundary for sequence-looping
+
+		self.tick = (self.tick % bound) + 1 -- Increment global tick, bounded by global gate-size
 
 		if self.groove then -- If Groove Mode is active...
+
 			self:clearGrooveTick() -- Clear notes from the tick if any of the Groove Mode erase-commands are active
+
+			-- If the groove-seq has looped around, automatically reset the pointers of all other active seqs
+			if self.tick == 1 then
+				for i = 1, #self.seq do
+					self.seq[i].pointer = self.seq[i].pointer and 1
+				end
+			end
+
+			-- Check currently-active Groove-seq for eraseable notes, and erase them if applicable
+			local s = self.g.seqnum
+			local p = self.seq[s].pointer
+			if self.seq[s].tick[p] then
+				for i = #self.seq[s].tick[p], 1, -1 do
+					if self.g.chanerase then
+						if self.seq[s].tick[p][i][1] == self.g.channum then
+							table.remove(self.seq[s].tick[p], i)
+						end
+					elseif self.g.erase then
+						table.remove(self.seq[s].tick[p], i)
+					end
+				end
+			end
+
 		end
 
 		-- If the GATE button isn't held, and the current tick is the first tick in a new column, update the GATE counting buttons
 		if (not self.slice.gate)
-		and (((self.tick - 1) % (self.longticks / self.gridx)) == 0)
+		and (((self.tick - 1) % (bound / self.gridx)) == 0)
 		then
 			self:queueGUI("sendGateCountButtons")
 		end
@@ -113,12 +139,17 @@ return {
 
 		end
 
-		-- If the seq's active column has shifted or been emptied, send an updated sequence row to the Monome apparatus
-		local newcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
-		if not self.slice.pitch then
-			if newcol ~= oldcol then
-				self:queueGUI("sendMetaSeqRow", s)
+		-- If not in Groove Mode...
+		if not self.groove then
+
+			-- If the seq's active column has shifted or been emptied, send an updated sequence row to the Monome apparatus
+			local newcol = self.seq[s].pointer and math.ceil(math.max(1, self.seq[s].pointer - 1) / self.gridx)
+			if not self.slice.pitch then
+				if newcol ~= oldcol then
+					self:queueGUI("sendMetaSeqRow", s)
+				end
 			end
+
 		end
 
 	end,

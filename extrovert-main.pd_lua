@@ -88,8 +88,6 @@ function Extrovert:initialize(sel, atoms)
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 
-	self.longticks = 192 -- Number of ticks in the longest active loop
-	
 	self.bpm = 120 -- Internal BPM value, for when MIDI CLOCK is not slaved to an external source
 	self.tpq = 24 -- Ticks per quarter note
 	
@@ -280,7 +278,28 @@ end
 -- Catch an incoming command from an external MIDI device
 function Extrovert:in_6_list(t)
 
+	-- If not in Groove Mode, ignore incoming MIDI
+	if not self.groove then
+		return nil
+	end
 
+	local cmd = table.remove(t, 1) -- Get midi-command type
+
+	if cmd == 'NOTE' then -- MIDI note
+		if t[2] > 0 then -- Only accept note-ons
+			self:insertGrooveNote(144, t[1], t[2])
+		end
+	elseif cmd == 'CTRL' then -- Control-change
+		self:insertGrooveNote(176, t[1], t[2])
+	elseif cmd == 'PROG' then -- Program-change
+		self:insertGrooveNote(192, t[1])
+	elseif cmd == 'PTOU' then -- Poly-touch
+		self:insertGrooveNote(160, t[2] or 0, t[3] or 0)
+	elseif cmd == 'MTOU' then -- Mono-touch
+		self:insertGrooveNote(208, t[2] or 0)
+	elseif cmd == 'BEND' then -- Pitch-bend
+		self:insertGrooveNote(224, t[2])
+	end
 
 end
 

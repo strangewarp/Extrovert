@@ -129,9 +129,8 @@ return {
 		self.bpm = bpm or 120
 		self.tpq = tpq or 24
 
-		-- Reset global tick and longticks, for gating purposes
+		-- Reset global tick
 		self.tick = 1
-		self.longticks = self.seq[1].total
 		
 		pd.post("Loaded savefile \"" .. fileloc .. "\"!")
 		pd.post("Beats Per Minute: " .. self.bpm)

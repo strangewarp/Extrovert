@@ -55,6 +55,7 @@ return {
 				self.g.len[x] = not self.g.len[x]
 				self.g.lennum = boolsToNum(self.g.len, false, 1, 1, 128)
 				self.g.len = numToBools(self.g.lennum, false, 1, 8)
+				self:seqToGrooveLength(self.g.seqnum)
 			elseif y == (self.gridy - 2) then -- Modify QUANTIZE bits
 				self.g.quant[x] = not self.g.quant[x]
 				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 1, 255)
@@ -63,9 +64,7 @@ return {
 				self.g.seq[x] = not self.g.seq[x]
 				self.g.seqnum = boolsToNum(self.g.seq, false, 1, 1, (self.gridy - 2) * self.gridx)
 				self.g.seq = numToBools(self.g.seqnum, false, 1, self.gridx)
-				self.g.lennum = math.max(1, math.min(128, math.floor(self.seq[self.g.seqnum].total / (self.tpq * 4)))) -- Set length, in beats
-				self.seq[self.g.seqnum].total = self.g.lennum * (self.tpq * 4) -- Tweak the total ticks in seqs that don't match the TPQ*4 beat-size regime
-				self.g.len = numToBools(self.g.lennum, false, 1, 128)
+				self:setGrooveSeq(self.g.seqnum)
 			end
 
 			self:queueGUI("sendGrooveBinRows")
@@ -81,7 +80,7 @@ return {
 					return nil
 				end
 				if s == 1 then -- If this is a down-keystroke, play an example-note
-					self:insertGrooveNote()
+					self:insertDefaultGrooveNote()
 				end
 			elseif x == 2 then -- Parse a RECORD-TOGGLE command
 				if s == 1 then -- If this is a down-keystroke, change the toggle's status
@@ -94,7 +93,7 @@ return {
 			elseif x == 3 then -- Parse a CHANNEL-ERASE command
 				self.g.chanerase = s == 1
 			elseif x == 4 then -- Parse an ERASE command
-				self.g.erase = s == 1
+				self.g.erase = s == 16
 			else -- Parse a GATE command
 				local gval = math.max(1, 2 ^ (x - 5))
 				self.g.gate = (self.g.gate or 0) + (gval * ((s * 2) - 1))
@@ -152,7 +151,8 @@ return {
 
 				-- If a "change global gate" command is given, advance the global gate-value by the gate-button value.
 				if self.slice.off and self.slice.swap then
-					self.tick = (((self.tick + ((self.longticks / self.gridx) * key)) - 1) % self.longticks) + 1
+					local limit = self.seq[(self.groove and self.g.seqnum) or 1].total
+					self.tick = (((self.tick + ((limit / self.gridx) * key)) - 1) % limit) + 1
 				else -- Else, if this is a regular gate-button-press...
 					self.slice.gate = key -- Set the GATE command to the corresponding key-value
 					for i = 5, self.gridx do -- Turn LEDs on and off, based on which button is held
