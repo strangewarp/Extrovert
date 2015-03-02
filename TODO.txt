@@ -3,6 +3,8 @@
 
 -- Test more thoroughly: MIDI-IN
 
+-- Add a permanent-seq-swap function to Groove Mode, for both up-index and down-index directions.
+
 -- Add a saveSequences function.
 
 -- In the saveSequences function, a sequence's save-loop should halt after reaching the seq's ".total" tick
