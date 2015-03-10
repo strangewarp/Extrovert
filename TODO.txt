@@ -1,15 +1,11 @@
 
--- Test more thoroughly: Record, TestOrTrackNote, ChanErase, and Erase
-
 -- Test more thoroughly: MIDI-IN
 
 -- Add a permanent-seq-swap function to Groove Mode, for both up-index and down-index directions.
 
 -- Add a saveSequences function.
-
--- In the saveSequences function, a sequence's save-loop should halt after reaching the seq's ".total" tick
-
--- In saveSequences function, if no savefile name was entered, check for "default"+number+".mid", and save in the first empty spot
+	. In saveSequences, a sequence's save-loop should halt after reaching the seq's ".total" tick
+	. In saveSequences, if no savefile name was entered, check for "default"+number+".mid", and save in the first empty spot
 
 -- Add a save-keyboard-command
 

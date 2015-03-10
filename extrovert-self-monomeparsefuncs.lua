@@ -67,6 +67,21 @@ return {
 				self:setGrooveSeq(self.g.seqnum)
 			end
 
+			pd.post(
+				"chan " .. self.g.channum
+				.. " - pitch " .. self.g.pitchnum
+				.. " - velo " .. self.g.velonum
+				.. " - dur " .. self.g.durnum
+			)
+			pd.post(
+				"humanize ~" .. self.g.humanizenum
+				.. " - quantize " .. self.g.quantnum
+			)
+			pd.post(
+				"seq " .. self.g.seqnum
+				.. " - length " .. self.g.lennum .. " beats of " .. (self.tpq * 4) .. " ticks"
+			)
+
 			self:queueGUI("sendGrooveBinRows")
 
 		end
@@ -93,7 +108,7 @@ return {
 			elseif x == 3 then -- Parse a CHANNEL-ERASE command
 				self.g.chanerase = s == 1
 			elseif x == 4 then -- Parse an ERASE command
-				self.g.erase = s == 16
+				self.g.erase = s == 1
 			else -- Parse a GATE command
 				local gval = math.max(1, 2 ^ (x - 5))
 				self.g.gate = (self.g.gate or 0) + (gval * ((s * 2) - 1))

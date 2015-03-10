@@ -55,6 +55,9 @@ return {
 						table.remove(self.seq[s].tick[p], i)
 					end
 				end
+				if #self.seq[s].tick[p] == 0 then -- If all notes were removed from the tick, remove that tick's table
+					table.remove(self.seq[s].tick, p)
+				end
 			end
 
 		end
@@ -157,8 +160,9 @@ return {
 	-- Build a meta version of a sequence's tick-table, based on its SCATTER values
 	buildScatterTable = function(self, s)
 
+		self.seq[s].metatick = {}
+
 		if #self.seq[s].sfactors == 0 then
-			self.seq[s].metaticks = {}
 			return nil
 		end
 

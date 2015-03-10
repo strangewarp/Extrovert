@@ -50,7 +50,8 @@ return {
 
 		self.groove = not self.groove
 
-		self:queueGUI("sendMetaGrid") -- Send full GUI
+		self:queueGUI("sendMetaGrid") -- Send upper rows
+		self:queueGUI("sendPageRow") -- Send page row, if applicable
 
 	end,
 
@@ -89,8 +90,8 @@ return {
 			cmd[3] = math.max(1, math.min(127, cmd[3] + roundNum((math.random() * self.g.humanizenum) - (self.g.humanizenum / 2))))
 		end
 
-		table.insert(cmd, 1, self.g.channum) -- Put the channel-number into the command
-		table.insert(cmd, self.g.durnum) -- Put the duration-number into the command
+		table.insert(cmd, 1, self.g.channum) -- Put the channel-number into the command's first index
+		table.insert(cmd, self.g.durnum) -- Put the duration-number into the command's last index
 
 		self:noteParse(cmd) -- Send an example-note, regardless of whether recording is enabled
 
@@ -103,8 +104,7 @@ return {
 			local p = self.seq[s].pointer
 			local pminus = p - 1
 			local tot = self.seq[s].total
-			local quant = math.max(1, roundNum((self.tpq * 4) / self.g.quantnum))
-			local chunk = math.max(1, ((quant == 0) and 1) or roundNum(tot / quant))
+			local chunk = self.g.quantnum
 			local lessamt = pminus % chunk
 			local moreamt = chunk - lessamt
 			local dist = ((moreamt < lessamt) and moreamt) or -lessamt
@@ -113,13 +113,13 @@ return {
 			-- Build the tick's table, if it's nil
 			self.seq[s].tick[t] = self.seq[s].tick[t] or {}
 
-			-- If any commands exactly match the new command, then remove them
+			-- If any commands exactly match the new command, remove them
 			local notes = self.seq[s].tick[t]
 			for i = #notes, 1, -1 do
-				local match = false
+				local match = true
 				for k, v in pairs(notes[i]) do
-					if v == cmd[k] then
-						match = true
+					if (not cmd[k]) or (v ~= cmd[k]) then
+						match = false
 						break
 					end
 				end
@@ -131,11 +131,10 @@ return {
 			-- Insert the command that was generated at the start of the function
 			table.insert(self.seq[s].tick[t], cmd)
 
-			pd.post("GROOVE NOTE INSERT:")
+			pd.post("GROOVE NOTE INSERT:")--debugging
 			pd.post("seq "..s)
 			pd.post("pointer "..p)
 			pd.post("total "..tot)
-			pd.post("quantize "..quant)
 			pd.post("chunk-size"..chunk)
 			pd.post("lessamt "..lessamt)
 			pd.post("moreamt "..moreamt)
@@ -159,6 +158,10 @@ return {
 			local chan = self.g.chanerase and self.g.channum
 			local s = self.g.seqnum
 			local p = self.seq[s].pointer
+
+			if self.g.chanerase then -- debugging
+				pd.post("erase chan: "..self.g.channum)--debugging
+			end--debugging
 
 			if self.seq[s].tick[p] then -- If there are any commands on the present tick within the active groove sequence...
 				for i = #self.seq[s].tick[p], 1, -1 do -- For every command within the tick...

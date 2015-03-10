@@ -126,12 +126,14 @@ return {
 		sendLED(x, y, s)
 	end,
 
-	-- Send the page-command row a new set of button data
+	-- Send the page-row a new set of button data
 	sendPageRow = function(self)
-		if self.overview then
-			self:sendSimpleRow(false, self.gridy - 2, true)
-		else
-			self:sendSimpleRow(self.page - 1, self.gridy - 2, false)
+		if not self.groove then -- If not in groove mode...
+			if self.overview then
+				self:sendSimpleRow(false, self.gridy - 2, true)
+			else
+				self:sendSimpleRow(self.page - 1, self.gridy - 2, false)
+			end
 		end
 	end,
 

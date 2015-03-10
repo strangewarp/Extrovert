@@ -145,7 +145,7 @@ h: Humanize-velocity rate. Applies a random value to the velocity of every note 
 
 l: Sequence length, in beats (tpq*4). Little-endian binary value, 1-128.
 
-q: Quantize amount. Entered notes will snap to the nearest Q-tick, where Q = max(1,round((tpq*4)/q)). Little-endian binary value, 0-128.
+q: Quantize amount. Entered notes will snap to the nearest tick that is a multiple of q. Little-endian binary value, 1-255.
 
 s: Currently active sequence for Groove Mode editing. Little-endian binary value, 1 to ((gridy-2)*gridx)
 
