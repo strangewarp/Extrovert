@@ -76,11 +76,6 @@ return {
 			combine[#combine + 1] = v
 		end
 
-		local pitchmod = deepCopy(self.g.pitch)
-		local velomod = deepCopy(self.g.velo)
-		pitchmod[self.gridx] = self.g.moveup
-		velomod[self.gridx] = self.g.movedown
-
 		self:sendBoolTabRow(self.gridy - 8, self.g.pitch)
 		self:sendBoolTabRow(self.gridy - 7, self.g.velo)
 		self:sendBoolTabRow(self.gridy - 6, self.g.dur)
