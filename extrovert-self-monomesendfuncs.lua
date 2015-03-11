@@ -76,6 +76,11 @@ return {
 			combine[#combine + 1] = v
 		end
 
+		local pitchmod = deepCopy(self.g.pitch)
+		local velomod = deepCopy(self.g.velo)
+		pitchmod[self.gridx] = self.g.moveup
+		velomod[self.gridx] = self.g.movedown
+
 		self:sendBoolTabRow(self.gridy - 8, self.g.pitch)
 		self:sendBoolTabRow(self.gridy - 7, self.g.velo)
 		self:sendBoolTabRow(self.gridy - 6, self.g.dur)
@@ -100,8 +105,8 @@ return {
 		sendLED(3, y, (self.g.erase and 1) or 0)
 
 		-- Send top-right corner buttons
-		sendLED(x, self.gridy - 8, (self.g.hpress and 1) or 0)
-		sendLED(x, self.gridy - 7, (self.g.lpress and 1) or 0)
+		sendLED(x, self.gridy - 8, (self.g.moveup and 1) or 0)
+		sendLED(x, self.gridy - 7, (self.g.movedown and 1) or 0)
 
 	end,
 

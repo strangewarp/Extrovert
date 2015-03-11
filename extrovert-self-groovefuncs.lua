@@ -15,6 +15,8 @@ return {
 			self.g.chanerase = false
 			self.g.erase = false
 			self.g.gate = false
+			self.g.moveup = false
+			self.g.movedown = false
 
 		else -- If toggling into Groove Mode...
 
@@ -59,6 +61,7 @@ return {
 	seqToGrooveLength = function(self, s)
 		self.seq[s].total = self.g.lennum * (self.tpq * 4) -- Make the seq's total ticks into a multiple of the TPQ*4 (beat) value
 		self.seq[s].pointer = (((self.seq[s].pointer or 1) - 1) % self.seq[s].total) + 1 -- Wrap sequence's pointer to the total-ticks range
+		self.tick = self.seq[s].pointer -- Match the global tick to the local pointer
 	end,
 
 	-- Set the currently active Groove Mode seq, and sanitize all related data-structures
@@ -176,6 +179,21 @@ return {
 			end
 
 		end
+
+	end,
+
+	-- Move a Groove Mode sequence to a new position in the sequence-order by a distance of 1 or -1
+	moveGrooveSeq = function(self, dist)
+
+		if (dist ~= -1) and (dist ~= 1) then
+			return nil
+		end
+
+		local i = self.g.seqnum
+		local i2 = wrapNum(i + dist, 1, #self.seq)
+		self.seq[i], self.seq[i2] = deepCopy(self.seq[i2]), deepCopy(self.seq[i])
+
+		self.g.seqnum = i2
 
 	end,
 

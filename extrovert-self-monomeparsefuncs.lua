@@ -27,7 +27,7 @@ return {
 
 		if s == 1 then -- If this is a down-keypress...
 
-			if y == (self.gridy - 7) then -- Modify PITCH bits
+			if y == (self.gridy - 7) then -- If top-row keypress...
 				self.g.pitch[x] = not self.g.pitch[x]
 				self.g.pitchnum = boolsToNum(self.g.pitch, false, 1, 0, 127)
 				self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
@@ -110,19 +110,49 @@ return {
 			elseif x == 4 then -- Parse an ERASE command
 				self.g.erase = s == 1
 			else -- Parse a GATE command
+
+				-- Set the groove-gating value to match the currently-pressed gate-buttons
 				local gval = math.max(1, 2 ^ (x - 5))
 				self.g.gate = (self.g.gate or 0) + (gval * ((s * 2) - 1))
 				self.g.gate = (self.g.gate ~= 0) and self.g.gate
-				if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
-					self:toggleGrooveMode()
-					return nil
+
+				if s == 1 then -- If this is a down-keystroke...
+
+					-- If no other Groove Mode control-buttons are being pressed, move global tick and local pointer to corresponding chunk-start
+					if (not self.g.track) and (not self.g.erase) and (not self.g.chanerase) and self.g.gate then
+						local seq = self.g.seqnum
+						local limit = self.seq[seq].total
+						self.tick = (math.floor(limit / self.gridx) * (math.max(self.g.gate, 1, 2 ^ (self.gridx - 5)) - 1)) + 1
+						self.seq[seq].pointer = self.tick
+						self:queueGUI("sendGateCountButtons")
+					elseif self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
+						self:toggleGrooveMode()
+						return nil
+					end
+
 				end
+
 			end
 
 			if x <= 4 then -- If this is a command-button press, refresh the command-keys
 				self:queueGUI("sendGrooveCommandKeys")
 			end
 
+		end
+
+		-- Check for all non-bottom-row command-buttons
+		if (y == (self.gridy - 7)) and (x == self.gridx) then -- If this is the rightmost button in the top row...
+			self.g.moveup = s == 1
+			self:queueGUI("sendGrooveCommandKeys")
+			if s == 1 then
+				self:moveGrooveSeq(-1) -- Move the sequence to a lesser position
+			end
+		elseif (y == (self.gridy - 6)) and (x == self.gridx) then -- If this is the rightmost button on the second-from-top row...
+			self.g.movedown = s == 1
+			self:queueGUI("sendGrooveCommandKeys")
+			if s == 1 then
+				self:moveGrooveSeq(1) -- Move the sequence to a greater position
+			end
 		end
 
 	end,
@@ -166,7 +196,7 @@ return {
 
 				-- If a "change global gate" command is given, advance the global gate-value by the gate-button value.
 				if self.slice.off and self.slice.swap then
-					local limit = self.seq[(self.groove and self.g.seqnum) or 1].total
+					local limit = self.seq[1].total
 					self.tick = (((self.tick + ((limit / self.gridx) * key)) - 1) % limit) + 1
 				else -- Else, if this is a regular gate-button-press...
 					self.slice.gate = key -- Set the GATE command to the corresponding key-value

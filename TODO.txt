@@ -1,7 +1,9 @@
 
--- Test more thoroughly: MIDI-IN
+-- When Gate buttons are pressed in Groove Mode, tab to that portion of the sequence. - done
+	. After changing the pointer, queue an update of the Gate-button LEDs. - done
+	. Clear the table of held-down Gate buttons when tabbing out of Groove Mode. - done
 
--- Add a permanent-seq-swap function to Groove Mode, for both up-index and down-index directions.
+-- Add a permanent-seq-swap function to Groove Mode, for up and down directions.
 
 -- Add a saveSequences function.
 	. In saveSequences, a sequence's save-loop should halt after reaching the seq's ".total" tick
@@ -12,3 +14,9 @@
 -- Add a savefile-name box, with manual save override
 
 -- Add Pd number-boxes for BPM and TPQ
+
+-- Test:
+	. MIDI-IN
+	. Groove Mode GATE-chord position toggling
+
+-- Double-check contents of tutorial in README

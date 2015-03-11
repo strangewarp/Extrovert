@@ -157,7 +157,7 @@ C: Erase notes on the current channel, as the play-pointer moves through the seq
 
 E: Erase all notes, as the play-pointer moves through the sequence.
 
-G: Local gate-counter. Toggle to a given portion of the active sequence.
+G: Local gate-counter. Chord these buttons to tab to a given portion of the active sequence.
 
 H: Move sequence to higher index.
 

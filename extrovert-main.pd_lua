@@ -126,8 +126,8 @@ function Extrovert:initialize(sel, atoms)
 		rec = false, -- Flag for: recording new notes enabled? (toggle button)
 		chanerase = false, -- Flag for: erasing notes only in the active channel ofthe active sequence
 		erase = false, -- Flag for: currently erasing notes in the active sequence as it plays through? (press-and-hold button)
-		hpress = false, -- Flag for: is "move sequence to higher index" button being pressed?
-		lpress = false, -- Flag for: is "move sequence to lower index" button being pressed?
+		moveup = false, -- Flag for: is "move sequence to lesser index" button being pressed?
+		movedown = false, -- Flag for: is "move sequence to greater index" button being pressed?
 		gate = false, -- Flag for: is a GATE button being pressed?
 	}
 	self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
