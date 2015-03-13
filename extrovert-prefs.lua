@@ -104,6 +104,12 @@ return {
 			"Tab",
 			"O",
 		},
+
+		SAVE = {
+			"Shift",
+			"Tab",
+			"S",
+		},
 		
 	},
 	

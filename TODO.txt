@@ -3,13 +3,16 @@
 	. After changing the pointer, queue an update of the Gate-button LEDs. - done
 	. Clear the table of held-down Gate buttons when tabbing out of Groove Mode. - done
 
--- Add a permanent-seq-swap function to Groove Mode, for up and down directions.
+-- Add a permanent-seq-swap function to Groove Mode, for up and down directions. - done
 
--- Add a saveSequences function.
-	. In saveSequences, a sequence's save-loop should halt after reaching the seq's ".total" tick
-	. In saveSequences, if no savefile name was entered, check for "default"+number+".mid", and save in the first empty spot
+-- Let incoming MIDI-NOTEs change Groove ode's pitch and velocity parameters - done
 
--- Add a save-keyboard-command
+-- double-check haltAllSustains - done
+
+-- Add a saveMidiFile function. - done
+	. In saveMidiFile, a sequence's save-loop should halt after reaching the seq's ".total" tick - done
+
+-- Add a save-keyboard-command - done
 
 -- Add a savefile-name box, with manual save override
 
@@ -18,5 +21,13 @@
 -- Test:
 	. MIDI-IN
 	. Groove Mode GATE-chord position toggling
+	. perma-swap up and down
+	. new changes to hotseat-tabbing
+	. new changes to loadMidiFile
+	. all of saveMidiFile
 
 -- Double-check contents of tutorial in README
+
+-- Change Github tagline to "MIDI-beatslicing groovebox, for composition and live performance on the Monome."
+
+-- Delete TODO file

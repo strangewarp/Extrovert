@@ -67,10 +67,11 @@ function Extrovert:initialize(sel, atoms)
 	if self.savepath:sub(-1) ~= "/" then
 		self.savepath = self.savepath .. "/"
 	end
+
+	self.filename = "default.mid" -- Holds savefile name
 	
 	self.hotseats = self.prefs.hotseats -- List of savefile hotseats
 	self.hotseatcmds = self.prefs.hotseatcmds -- List of hotseat keycommands
-	self.activeseat = 1 -- Currently active hotseat
 	
 	self.color = {}
 	for k, v in ipairs(self.prefs.gui.color) do -- Split the user-defined colors into regular, light, and dark variants
@@ -285,8 +286,13 @@ function Extrovert:in_6_list(t)
 
 	local cmd = table.remove(t, 1) -- Get midi-command type
 
-	if cmd == 'NOTE' then -- MIDI note
+	if cmd == 'NOTE' then -- MIDI NOTE
 		if t[2] > 0 then -- Only accept note-ons
+			self.g.pitchnum = t[1] -- Change Groove Mode's pitch-value based on incoming note
+			self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
+			self.g.velonum = t[2] -- Change Groove Mode's velocity-value based on incoming note
+			self.g.velo = numToBools(self.g.velonum, false, 1, 8)
+			self:queueGUI("sendGrooveBinRows")
 			self:insertGrooveNote(144, t[1], t[2])
 		end
 	elseif cmd == 'CTRL' then -- Control-change
@@ -306,7 +312,13 @@ end
 -- Load a MIDI file with a user-entered filename
 function Extrovert:in_7_symbol(s)
 
-	self:loadMidiFile(s)
+	if s:sub(-4) ~= ".mid" then
+		s = s .. ".mid"
+	end
+
+	self.filename = s
+
+	self:loadMidiFile()
 
 	self:updateGUI() -- Update ay changed GUI elements
 
@@ -315,7 +327,13 @@ end
 -- Save to a MIDI file, in the user-supplied directory, with a user-entered filename
 function Extrovert:in_8_symbol(s)
 
-	self:saveMidiFile(s)
+	if s:sub(-4) ~= ".mid" then
+		s = s .. ".mid"
+	end
+
+	self.filename = s
+
+	self:saveMidiFile()
 
 	self:updateGUI() -- Update ay changed GUI elements
 

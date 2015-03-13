@@ -168,8 +168,11 @@ KEYBOARD COMMANDS:
 MIDI PANIC: Space
 -- Ends all current MIDI sustains.
 
-LOAD HOTSEAT FILE: Shift-Tab-O
--- Loads currently selected hotseat-file.
+SWITCH TO HOTSEAT FILENAME: Shift-number, or Shift-Tab-number
+-- Switches between hotseat filenames.
 
-SWITCH TO HOTSEAT FILE: Shift-number, or Shift-Tab-number
--- Switches between hotseat files.
+LOAD CURRENT FILENAME: Shift-Tab-O
+-- Loads from currently active filename.
+
+SAVE TO CURRENT FILENAME: Shift-Tab-S
+-- Saves to currently active filename.

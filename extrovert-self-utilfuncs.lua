@@ -1,10 +1,83 @@
 
 return {
-	
-	-- Load a MIDI savefile folder, via the MIDI.lua apparatus
-	loadMidiFile = function(self, fname)
 
-		fname = fname or self.hotseats[self.activeseat]
+	-- Save a MIDI savefile, via the MIDI.lua apparatus
+	saveMidiFile = function(self)
+
+		self:stopTempo()
+
+		local score = {}
+
+		-- Get proper save location and filename
+		local shortname = self.filename
+		if self.filename:sub(-4) ~= ".mid" then
+			shortname = shortname .. ".mid"
+		end
+		local saveloc = self.savepath .. shortname
+		print("saveFile: Now saving: " .. saveloc)
+
+		-- For every sequence, translate it to a valid score track
+		for tracknum, track in ipairs(self.seq) do
+
+			local sk = #score + 1
+			score[sk] = {}
+
+			-- Copy over all notes and cmds to the score-track-table
+			for i = 1, track.total do
+				if track.tick[i] then
+					for _, n in pairs(track.tick[i]) do
+						local im = i - 1
+						if n[2] == 144 then
+							table.insert(score[sk], {'note', im, n[5], n[1], n[3], n[4]})
+						elseif n[2] == 160 then
+							table.insert(score[sk], {'channel_after_touch', im, n[1], n[3]})
+						elseif n[2] == 176 then
+							table.insert(score[sk], {'control_change', im, n[1], n[3], n[4]})
+						elseif n[2] == 192 then
+							table.insert(score[sk], {'patch_change', im, n[1], n[3]})
+						elseif n[2] == 208 then
+							table.insert(score[sk], {'key_after_touch', im, n[1], n[3], n[4]})
+						elseif n[2] == 224 then
+							table.insert(score[sk], {'pitch_wheel_change' im, n[1], n[3]})
+						end
+					end
+				end
+			end
+
+			-- Insert an end_track command, so MIDI.lua knows how long the sequence is.
+			table.insert(score[sk], {'end_track', track.total})
+
+			pd.post("saveMidiFile: copied sequence " .. tracknum .. " to save-table. " .. #score[tracknum] .. " items!")
+
+		end
+
+		-- Insert tempo information in the first track,
+		-- and the TPQ value in the first score-table entry, as per MIDI.lua spec.
+		local outbpm = 60000000 / self.bpm
+		table.insert(score, 1, self.tpq)
+		table.insert(score[2], 1, {'time_signature', 0, 4, 4, self.tpq, 8})
+		table.insert(score[2], 2, {'set_tempo', 0, outbpm})
+		print("saveFile: BPM " .. self.bpm .. " :: TPQ " .. self.tpq .. " :: uSPQ " .. outbpm)
+
+		-- Save the score into a MIDI file within the savefolder
+		local midifile = io.open(saveloc, 'w')
+		if midifile == nil then
+			pd.post("Could not save file! Filename contains invalid characters, or is in a location that could not be opened!")
+			return nil
+		end
+		midifile:write(MIDI.score2midi(score))
+		midifile:close()
+
+		pd.post("Saved " .. (#score - 1) .. " track" .. (((#score ~= 2) and "s") or "") .. " to file: " .. shortname)
+
+		print("saveFile: saved " .. (#score - 1) .. " sequences to file \"" .. saveloc .. "\"!")
+
+		self:startTempo()
+
+	end,
+	
+	-- Load a MIDI savefile, via the MIDI.lua apparatus
+	loadMidiFile = function(self)
 
 		self:stopTempo() -- Stop the tempo-metronome
 
@@ -12,7 +85,7 @@ return {
 		local bpm, tpq = false, false
 
 		-- Get the MIDI file's full path and name
-		local fileloc = self.savepath .. fname
+		local fileloc = self.savepath .. self.filename
 		if fileloc:sub(-4) ~= ".mid" then
 			fileloc = fileloc .. ".mid"
 		end
@@ -69,23 +142,23 @@ return {
 				elseif v[1] == "channel_after_touch" then
 					endpoint = math.max(endpoint, vplus)
 					outtab[vplus] = outtab[vplus] or {}
-					table.insert(outtab[vplus], {v[3], 160, v[4], 0, 0})
+					table.insert(outtab[vplus], {v[3], 160, v[4]})
 				elseif v[1] == "control_change" then
 					endpoint = math.max(endpoint, vplus)
 					outtab[vplus] = outtab[vplus] or {}
-					table.insert(outtab[vplus], {v[3], 176, v[4], v[5], 0})
+					table.insert(outtab[vplus], {v[3], 176, v[4], v[5]})
 				elseif v[1] == "patch_change" then
 					endpoint = math.max(endpoint, vplus)
 					outtab[vplus] = outtab[vplus] or {}
-					table.insert(outtab[vplus], {v[3], 192, v[4], 0, 0})
+					table.insert(outtab[vplus], {v[3], 192, v[4]})
 				elseif v[1] == "key_after_touch" then
 					endpoint = math.max(endpoint, vplus)
 					outtab[vplus] = outtab[vplus] or {}
-					table.insert(outtab[vplus], {v[3], 208, v[4], v[5], 0})
+					table.insert(outtab[vplus], {v[3], 208, v[4], v[5]})
 				elseif v[1] == "pitch_wheel_change" then
 					endpoint = math.max(endpoint, vplus)
 					outtab[vplus] = outtab[vplus] or {}
-					table.insert(outtab[vplus], {v[3], 224, v[4], 0, 0})
+					table.insert(outtab[vplus], {v[3], 224, v[4]})
 				elseif v[1] == "set_tempo" then -- Grab tempo commands
 					if v[2] == 0 then -- Set global tempo
 						bpm = bpm or (60000000 / v[3])
@@ -149,8 +222,12 @@ return {
 
 	-- Toggle to a saveload filename within the hotseats list
 	toggleToHotseat = function(self, seat)
-		self.activeseat = seat
-		pd.post("Saveload hotseat: " .. self.activeseat .. ": " .. self.hotseats[self.activeseat])
+		local fn = self.hotseats[seat]
+		if fn:sub(-4) ~= ".mid" then
+			fn = fn . ".mid"
+		end
+		self.filename = fn
+		pd.post("Saveload hotseat: " .. seat .. ": " .. self.hotseats[seat] .. " (" .. fn .. ")")
 		self:queueGUI("updateHotseatBar")
 	end,
 
