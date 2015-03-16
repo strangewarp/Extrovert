@@ -32,9 +32,11 @@ function Extrovert:initialize(sel, atoms)
 	-- 4. Monome ADC
 	-- 5. Metronome-ticks in
 	-- 6. MIDI-IN
-	-- 7. Custom loadfile name
-	-- 8. Custom savefile name
-	self.inlets = 8
+	-- 7. Custom filename
+	-- 8. Load-file-bang
+	-- 9. Save-file-bang
+	-- 10. BPM number
+	self.inlets = 10
 	
 	-- No outlets. Everything is done through pd.send() instead.
 	self.outlets = 0
@@ -68,8 +70,7 @@ function Extrovert:initialize(sel, atoms)
 		self.savepath = self.savepath .. "/"
 	end
 
-	self.filename = "default.mid" -- Holds savefile name
-	
+	self.activeseat = 1 -- Currently active hotseat
 	self.hotseats = self.prefs.hotseats -- List of savefile hotseats
 	self.hotseatcmds = self.prefs.hotseatcmds -- List of hotseat keycommands
 	
@@ -309,14 +310,29 @@ function Extrovert:in_6_list(t)
 
 end
 
--- Load a MIDI file with a user-entered filename
+-- Set a custom filename
 function Extrovert:in_7_symbol(s)
 
 	if s:sub(-4) ~= ".mid" then
 		s = s .. ".mid"
 	end
 
-	self.filename = s
+	for i = #self.hotseats, 2, -1 do
+		self.hotseats[i] = self.hotseats[i - 1]
+	end
+
+	self.hotseats[1] = s
+
+	self.activeseat = 1
+
+	self:queueGUI("updateHotseatBar")
+
+	self:updateGUI() -- Update ay changed GUI elements
+
+end
+
+-- Load a MIDI file with a user-entered filename
+function Extrovert:in_8_bang()
 
 	self:loadMidiFile()
 
@@ -325,16 +341,19 @@ function Extrovert:in_7_symbol(s)
 end
 
 -- Save to a MIDI file, in the user-supplied directory, with a user-entered filename
-function Extrovert:in_8_symbol(s)
-
-	if s:sub(-4) ~= ".mid" then
-		s = s .. ".mid"
-	end
-
-	self.filename = s
+function Extrovert:in_9_bang()
 
 	self:saveMidiFile()
 
 	self:updateGUI() -- Update ay changed GUI elements
+
+end
+
+-- Get a new user-defined BPM value
+function Extrovert:in_10_float(n)
+
+	self.bpm = n
+
+	self:propagateBPM()
 
 end

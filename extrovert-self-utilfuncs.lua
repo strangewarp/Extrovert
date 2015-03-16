@@ -9,8 +9,8 @@ return {
 		local score = {}
 
 		-- Get proper save location and filename
-		local shortname = self.filename
-		if self.filename:sub(-4) ~= ".mid" then
+		local shortname = self.hotseats[self.activeseat]
+		if shortname:sub(-4) ~= ".mid" then
 			shortname = shortname .. ".mid"
 		end
 		local saveloc = self.savepath .. shortname
@@ -38,7 +38,7 @@ return {
 						elseif n[2] == 208 then
 							table.insert(score[sk], {'key_after_touch', im, n[1], n[3], n[4]})
 						elseif n[2] == 224 then
-							table.insert(score[sk], {'pitch_wheel_change' im, n[1], n[3]})
+							table.insert(score[sk], {'pitch_wheel_change', im, n[1], n[3]})
 						end
 					end
 				end
@@ -47,7 +47,12 @@ return {
 			-- Insert an end_track command, so MIDI.lua knows how long the sequence is.
 			table.insert(score[sk], {'end_track', track.total})
 
-			pd.post("saveMidiFile: copied sequence " .. tracknum .. " to save-table. " .. #score[tracknum] .. " items!")
+			-- Print information about the sequence
+			local beatsnum = roundNum((track.total / (self.tpq * 4)), 2)
+			if (beatsnum % 1) ~= 0 then
+				beatsnum = "~" .. beatsnum
+			end
+			pd.post("saveMidiFile: copied sequence " .. tracknum .. " to save-table. " .. beatsnum .. " beats, " .. #score[tracknum] .. " items.")
 
 		end
 
@@ -85,7 +90,7 @@ return {
 		local bpm, tpq = false, false
 
 		-- Get the MIDI file's full path and name
-		local fileloc = self.savepath .. self.filename
+		local fileloc = self.savepath .. self.hotseats[self.activeseat]
 		if fileloc:sub(-4) ~= ".mid" then
 			fileloc = fileloc .. ".mid"
 		end
@@ -222,12 +227,8 @@ return {
 
 	-- Toggle to a saveload filename within the hotseats list
 	toggleToHotseat = function(self, seat)
-		local fn = self.hotseats[seat]
-		if fn:sub(-4) ~= ".mid" then
-			fn = fn . ".mid"
-		end
-		self.filename = fn
-		pd.post("Saveload hotseat: " .. seat .. ": " .. self.hotseats[seat] .. " (" .. fn .. ")")
+		self.activeseat = seat
+		pd.post("Saveload hotseat: " .. seat .. ": " .. self.hotseats[seat])
 		self:queueGUI("updateHotseatBar")
 	end,
 

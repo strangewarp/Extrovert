@@ -150,8 +150,8 @@ return {
 		for k, v in ipairs(self.hotseats) do
 		
 			local outname = "extrovert-hotseat-" .. (k - 1)
-		
-			if v == self.filename then
+			
+			if k == self.activeseat then
 				pd.send("extrovert-color-out", "list", rgbOutList(outname, self.color[2][1], self.color[5][1]))
 			else
 				pd.send("extrovert-color-out", "list", rgbOutList(outname, self.color[3][1], self.color[5][1]))

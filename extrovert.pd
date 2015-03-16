@@ -1,4 +1,4 @@
-#N canvas 539 410 526 250 10;
+#N canvas 539 410 352 254 10;
 #X declare -lib mrpeach;
 #X obj 22 263 import mrpeach;
 #N canvas 539 4 618 345 extrovert-gui 1;
@@ -43,8 +43,8 @@
 #X connect 15 0 4 1;
 #X connect 16 0 5 1;
 #X restore 22 321 pd extrovert-gui-sender;
-#N canvas 562 3 577 401 extrovert-lua-holder 0;
-#X obj 146 295 extrovert-main;
+#N canvas 562 3 577 460 extrovert-lua-holder 0;
+#X obj 146 345 extrovert-main;
 #X obj 166 50 keyname;
 #X symbolatom 205 73 10 0 0 0 - - -;
 #X floatatom 166 73 3 0 0 0 - - -;
@@ -53,9 +53,11 @@
 #X obj 206 152 r extrovert-monome-dials;
 #X obj 186 129 r extrovert-monome-buttons;
 #X obj 69 161 loadbang;
-#X obj 268 222 r extrovert-load-filename;
-#X obj 288 246 r extrovert-save-filename;
 #X obj 247 198 r extrovert-incoming-midi-commands;
+#X obj 288 247 r extrovert-load;
+#X obj 268 222 r extrovert-filename;
+#X obj 308 272 r extrovert-save;
+#X obj 328 297 r extrovert-bpm;
 #X connect 1 0 3 0;
 #X connect 1 1 2 0;
 #X connect 2 0 4 1;
@@ -65,9 +67,11 @@
 #X connect 6 0 0 3;
 #X connect 7 0 0 2;
 #X connect 8 0 0 0;
-#X connect 9 0 0 6;
+#X connect 9 0 0 5;
 #X connect 10 0 0 7;
-#X connect 11 0 0 5;
+#X connect 11 0 0 6;
+#X connect 12 0 0 8;
+#X connect 13 0 0 9;
 #X restore 22 340 pd extrovert-lua-holder;
 #N canvas 448 32 497 502 extrovert-midi-clock 0;
 #X obj 45 33 r extrovert-metro-command;
@@ -213,12 +217,8 @@
 #X text 23 64 Each track corresponds to a sequence \,;
 #X text 23 74 and all are held within a single file.;
 #X text 23 54 Savefiles must be in MIDI Format 1:;
-#X symbolatom 25 172 30 0 0 2 - extrovert-dummy-load-filename-receive
-extrovert-load-filename;
-#X symbolatom 295 172 30 0 0 2 - extrovert-dummy-save-filename-receive
-extrovert-save-filename;
-#X text 293 155 SAVE custom MIDI file:;
-#X text 23 155 LOAD custom MIDI file:;
+#X symbolatom 25 204 30 0 0 2 - extrovert-dummy-filename-receive extrovert-filename
+;
 #N canvas 548 109 602 398 extrovert-midi-in 0;
 #X obj 96 30 notein;
 #X obj 236 29 ctlin;
@@ -340,3 +340,10 @@ extrovert-save-filename;
 #X connect 49 0 45 0;
 #X connect 50 0 39 0;
 #X restore 22 378 pd extrovert-midi-in;
+#X text 23 187 Use custom filename:;
+#X obj 236 204 bng 25 250 50 0 extrovert-load extrovert-dummy-load
+LOAD 0 -8 0 12 -260097 -257985 -1;
+#X obj 276 204 bng 25 250 50 0 extrovert-save extrovert-dummy-save
+SAVE 0 -8 0 12 -4032 -257985 -1;
+#X floatatom 25 161 5 10 300 2 BPM extrovert-dummy-bpm extrovert-bpm
+;
