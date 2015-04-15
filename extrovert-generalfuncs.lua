@@ -26,40 +26,6 @@ return {
 
 	end,
 
-	-- Convert a number to a table of booleans
-	numToBools = function(num, bigend, multi, size)
-
-		num = num or 0
-
-		local bools = {}
-
-		if num == 0 then
-			for i = 1, size do
-				bools[i] = false
-			end
-			return bools
-		end
-
-		bigend = bigend ~= false
-		multi = ((multi and (multi >= 2) and ((multi % 2) == 0)) and multi) or 1
-		size = size or 8
-
-		for i = (bigend and 1) or size, (bigend and size) or 1, (bigend and 1) or -1 do
-			local index = (bigend and (#bools + 1)) or 1
-			local key = (bigend and (size - i)) or (i - 1)
-			local val = math.max(1, 2 ^ key) * multi
-			if val <= num then
-				table.insert(bools, index, true)
-				num = num - val
-			else
-				table.insert(bools, index, false)
-			end
-		end
-
-		return bools
-
-	end,
-
 	-- Compare the contents of two tables of type <t = {v1 = v1, v2 = v2, ...}>, and return true only on an exact match.
 	crossCompare = function(t, t2)
 
@@ -107,6 +73,40 @@ return {
 		end
 	end,
 
+	-- Convert a number to a table of booleans
+	numToBools = function(num, bigend, multi, size)
+
+		num = num or 0
+
+		local bools = {}
+
+		if num == 0 then
+			for i = 1, size do
+				bools[i] = false
+			end
+			return bools
+		end
+
+		bigend = bigend ~= false
+		multi = ((multi and (multi >= 2) and ((multi % 2) == 0)) and multi) or 1
+		size = size or 8
+
+		for i = (bigend and 1) or size, (bigend and size) or 1, (bigend and 1) or -1 do
+			local index = (bigend and (#bools + 1)) or 1
+			local key = (bigend and (size - i)) or (i - 1)
+			local val = math.max(1, 2 ^ key) * multi
+			if val <= num then
+				table.insert(bools, index, true)
+				num = num - val
+			else
+				table.insert(bools, index, false)
+			end
+		end
+
+		return bools
+
+	end,
+
 	-- Check whether a value falls within a particular range; return true or false
 	rangeCheck = function(val, low, high)
 
@@ -129,6 +129,30 @@ return {
 		dec = dec or 0
 		local mult = 10 ^ dec
 		return math.floor((num * mult) + 0.5) / mult
+	end,
+
+	-- Wrap a number to a given range.
+	-- Usage note: top itself does not wrap. top+1 does wrap.
+	-- Usage note: arg 2 can be either the bottom of the range, or a range table.
+	wrapNum = function(n, a, b)
+
+		-- If the range was in a table, format it correctly
+		if type(a) == "table" then
+			a, b = unpack(a)
+		end
+
+		-- If either of the limits is infinite, treat them as equal to n;
+		-- and if n is to be bounded, set said limit to the opposite bound.
+		if a == -math.huge then
+			a = math.min(b, n)
+		end
+		if b == math.huge then
+			b = math.max(a, n)
+		end
+
+		-- Return the wrapped number
+		return ((n - a) % ((b + 1) - a)) + a
+
 	end,
 
 }

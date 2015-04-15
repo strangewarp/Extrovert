@@ -71,17 +71,26 @@ return {
 	-- Sen all binary-value rows for the Groove Mode view
 	sendGrooveBinRows = function(self)
 
-		local combine = deepCopy(self.g.chan)
-		for _, v in ipairs(self.g.humanize) do
-			combine[#combine + 1] = v
+		local combines = {
+			{deepCopy(self.g.velo), {self.g.velorand}},
+			{deepCopy(self.g.octave), deepCopy(self.g.dur)},
+			{deepCopy(self.g.chan), deepCopy(self.g.quant)},
+		}
+		local outc = {}
+		for k, v in pairs(combines) do
+			outc[k] = v[1]
+			for _, vv in ipairs(v[2]) do
+				outc[k][#outc[k] + 1] = vv
+			end
 		end
 
-		self:sendBoolTabRow(self.gridy - 8, self.g.pitch)
-		self:sendBoolTabRow(self.gridy - 7, self.g.velo)
-		self:sendBoolTabRow(self.gridy - 6, self.g.dur)
-		self:sendBoolTabRow(self.gridy - 5, combine)
-		self:sendBoolTabRow(self.gridy - 4, self.g.len)
-		self:sendBoolTabRow(self.gridy - 3, self.g.quant)
+		self:sendBoolTabRow(self.gridy - 8, self.g.pitch[1].bool)
+		self:sendBoolTabRow(self.gridy - 7, self.g.pitch[2].bool)
+
+		self:sendBoolTabRow(self.gridy - 6, outc[1])
+		self:sendBoolTabRow(self.gridy - 5, outc[2])
+		self:sendBoolTabRow(self.gridy - 4, outc[3])
+		self:sendBoolTabRow(self.gridy - 3, self.g.len)
 		self:sendBoolTabRow(self.gridy - 2, self.g.seq)
 
 	end,
@@ -94,14 +103,10 @@ return {
 		local y = self.gridy - 1
 
 		-- Send bottom-row buttons
-		sendLED(0, y, (self.g.track and 1) or 0)
-		sendLED(1, y, (self.g.rec and 1) or 0)
+		sendLED(0, y, (self.g.move and 1) or 0)
+		sendLED(1, y, ((self.g.rec or self.g.recheld) and 1) or 0)
 		sendLED(2, y, (self.g.chanerase and 1) or 0)
 		sendLED(3, y, (self.g.erase and 1) or 0)
-
-		-- Send top-right corner buttons
-		sendLED(x, self.gridy - 8, (self.g.moveup and 1) or 0)
-		sendLED(x, self.gridy - 7, (self.g.movedown and 1) or 0)
 
 	end,
 

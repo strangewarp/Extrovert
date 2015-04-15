@@ -163,6 +163,52 @@ H: Move sequence to higher index.
 
 L: Move sequence to lower index.
 
+GROOVE MODE (revised):
+
+p p p p p p p p
+p p p p p p p p
+v v v v v v v r
+o o o o d d d d
+c c c c q q q q
+l l l l l l l l
+s s s s s s s s
+M R C E G G G G
+
+p: Play note.
+-- Row 1: C#, D#, F, G, A, B, C#, D#
+-- Row 2: C, D, E, F#, G#, A#, C, D
+
+v: Note velocity. Little-endian binary value, 1 to 127.
+r: Randomize velocity within given velocity-value. Toggle button.
+
+o: Base octave for pitch-range. Big-endian binary value, 0 to 10.
+
+d: Duration. Notes will have a duration of ceil((beat/q)/d). Big-endian binary value, (0 to 15) + 1.
+
+c: MIDI channel. Big-endian binary value, 0 to 15.
+
+q: Quantize amount. Entered notes will snap to the nearest tick that is a multiple of round(beat/q). Big-endian binary value, (0 to 15) + 1.
+
+l: Sequence length, in beats. Big-endian binary value, 1 to 128.
+
+s: Currently active sequence for Groove Mode editing. Big-endian binary value, 1 to ((gridy-2)*gridx).
+
+M: Move current sequence to an adjacent absolute slot.
+-- Chord with R: Lower index (towards 1).
+-- Chord with C: Higher index (towards max).
+
+R: Toggle whether notes triggered by "p" are being recorded.
+
+C: Erase notes on the current channel, as the play-pointer moves through the sequence.
+
+E: Erase all notes, as the play-pointer moves through the sequence.
+
+G: Local gate-counter. Chord these buttons to tab to a given portion of the active sequence.
+
+H: Move sequence to higher index.
+
+L: Move sequence to lower index.
+
 KEYBOARD COMMANDS:
 
 MIDI PANIC: Space

@@ -27,39 +27,46 @@ return {
 
 		if s == 1 then -- If this is a down-keypress...
 
-			if y == (self.gridy - 7) then -- If top-row keypress...
-				self.g.pitch[x] = not self.g.pitch[x]
-				self.g.pitchnum = boolsToNum(self.g.pitch, false, 1, 0, 127)
-				self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
-			elseif y == (self.gridy - 6) then -- Modify VELOCITY bits
-				self.g.velo[x] = not self.g.velo[x]
-				self.g.velonum = boolsToNum(self.g.velo, false, 1, 1, 127)
-				self.g.velo = numToBools(self.g.velonum, false, 1, 8)
-			elseif y == (self.gridy - 5) then -- Modify DURATION bits
-				self.g.dur[x] = not self.g.dur[x]
-				self.g.durnum = boolsToNum(self.g.dur, false, 1, 1, 255)
-				self.g.dur = numToBools(self.g.durnum, false, 1, 8)
-			elseif y == (self.gridy - 4) then -- Modify either MIDI CHANNEL or HUMANIZE bits
+			if y <= (self.gridy - 6) then -- If top-two-rows keypress...
+				local ymod = -self.gridy + y + 8
+				self:insertDefaultGrooveNote(x, ymod) -- Play/insert a note
+			elseif y == (self.gridy - 5) then -- Modify VELOCITY bits
+				if x < self.gridx then -- If this isn't the rightmost button, modify velocity values
+					self.g.velo[x] = not self.g.velo[x]
+					self.g.velonum = boolsToNum(self.g.velo, false, 1, 1, 127)
+					self.g.velo = numToBools(self.g.velonum, false, 1, 8)
+				else -- Else, if this is the rightmost button, toggle random-velocity
+					self.g.velorand = not self.g.velorand
+				end
+			elseif y == (self.gridy - 4) then -- Modify OCTAVE or DURATION bits
+				local xhalf = math.floor(self.gridx / 2)
+				if x <= xhalf then -- If left half of row, change octave values
+					self.g.octave[x] = not self.g.octave[x]
+					self.g.octavenum = boolsToNum(self.g.octave, false, 1, 0, 10)
+					self.g.octave = numToBools(self.g.octavenum, false, 1, 4)
+				else -- Else, change duration values
+					local x2 = x - xhalf
+					self.g.dur[x2] = not self.g.dur[x2]
+					self.g.durnum = boolsToNum(self.g.dur, false, 1, 0, 15)
+					self.g.dur = numToBools(self.g.durnum, false, 1, 4)
+				end
+			elseif y == (self.gridy - 3) then -- Modify either MIDI CHANNEL or QUANTIZE bits
 				local xhalf = math.floor(self.gridx / 2)
 				if x <= xhalf then -- Modify MIDI CHANNEL bits
 					self.g.chan[x] = not self.g.chan[x]
-					self.g.channum = boolsToNum(self.g.chan, true, 1, 0, 15)
-					self.g.chan = numToBools(self.g.channum, true, 1, 4)
-				else -- Modify HUMANIZE bits
-					local xmod = x - xhalf
-					self.g.humanize[xmod] = not self.g.humanize[xmod]
-					self.g.humanizenum = boolsToNum(self.g.humanize, false, 16, 0, 128)
-					self.g.humanize = numToBools(self.g.humanizenum, false, 16, 4)
+					self.g.channum = boolsToNum(self.g.chan, false, 1, 0, 15)
+					self.g.chan = numToBools(self.g.channum, false, 1, 4)
+				else  -- Modify QUANTIZE bits
+					local x2 = x - xhalf
+					self.g.quant[x2] = not self.g.quant[x2]
+					self.g.quantnum = boolsToNum(self.g.quant, false, 1, 0, 15)
+					self.g.quant = numToBools(self.g.quantnum, false, 1, 4)
 				end
-			elseif y == (self.gridy - 3) then -- Modify SEQUENCE LENGTH bits
+			elseif y == (self.gridy - 2) then -- Modify SEQUENCE LENGTH bits
 				self.g.len[x] = not self.g.len[x]
 				self.g.lennum = boolsToNum(self.g.len, false, 1, 1, 128)
 				self.g.len = numToBools(self.g.lennum, false, 1, 8)
 				self:seqToGrooveLength(self.g.seqnum)
-			elseif y == (self.gridy - 2) then -- Modify QUANTIZE bits
-				self.g.quant[x] = not self.g.quant[x]
-				self.g.quantnum = boolsToNum(self.g.quant, false, 1, 1, 255)
-				self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
 			elseif y == (self.gridy - 1) then -- Modify ACTIVE SEQUENCE bits
 				self.g.seq[x] = not self.g.seq[x]
 				self.g.seqnum = boolsToNum(self.g.seq, false, 1, 1, (self.gridy - 2) * self.gridx)
@@ -67,46 +74,55 @@ return {
 				self:setGrooveSeq(self.g.seqnum)
 			end
 
+			pd.post("--------")
 			pd.post(
 				"chan " .. self.g.channum
-				.. " - pitch " .. self.g.pitchnum
-				.. " - velo " .. self.g.velonum
-				.. " - dur " .. self.g.durnum
+				.. " - octave " .. self.g.octavenum
+				.. " - velo " .. self.g.velonum .. "(rand-" .. tostring(self.g.velorand) .. ")"
 			)
 			pd.post(
-				"humanize ~" .. self.g.humanizenum
-				.. " - quantize " .. self.g.quantnum
+				"quant " .. roundNum((self.tpq * 4) / (self.g.quantnum + 1))
+				.. " - dur " .. math.ceil(((self.tpq * 4) / (self.g.quantnum + 1)) / (self.g.durnum + 1))
 			)
 			pd.post(
 				"seq " .. self.g.seqnum
-				.. " - length " .. self.g.lennum .. " beats of " .. (self.tpq * 4) .. " ticks"
+				.. " - length " .. self.g.lennum
 			)
 
 			self:queueGUI("sendGrooveBinRows")
 
 		end
 
-		if y == self.gridy then -- If this is a control-row keypress...
+		if y <= (self.gridy - 6) then -- If this is a pitch-row keypress, set the pitch-row GUI data to reflect that
+			local ymod = -self.gridy + y + 8
+			self.g.pitch[ymod].bool[x] = s == 1
+			self.g.pitch[ymod].num = boolsToNum(self.g.pitch[ymod].bool, false, 1, 0, (2 ^ self.gridx) - 1)
+			self.g.pitch[ymod].bool = numToBools(self.g.pitch[ymod].num, false, 1, self.gridx)
+			self:queueGUI("sendGrooveBinRows")
+		elseif y == self.gridy then -- If this is a control-row keypress...
 
 			if x == 1 then -- Parse a TEST/TRACK command, for either an up or down keypress
-				self.g.track = s == 1
-				if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
+				self.g.move = s == 1
+				if self.g.move and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
 					self:toggleGrooveMode()
 					return nil
 				end
-				if s == 1 then -- If this is a down-keystroke, play an example-note
-					self:insertDefaultGrooveNote()
-				end
 			elseif x == 2 then -- Parse a RECORD-TOGGLE command
+				self.g.recheld = s == 1
 				if s == 1 then -- If this is a down-keystroke, change the toggle's status
 					self.g.rec = not self.g.rec
-					if self.g.track and (not self.g.rec) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
+					if self.g.move and self.g.recheld then -- If the MOVE and REC buttons are both held, move the seq to a lower absolute-slot
+						self:moveGrooveSeq(-1) -- Move the sequence to a lesser position
+					elseif self.g.move and (not self.g.rec) and (not self.g.recheld) and self.g.gate then -- If TOGGLE GROOVE keychord is hit, and RECORD is inactive, then toggle out of Groove Mode
 						self:toggleGrooveMode()
 						return nil
 					end
 				end
 			elseif x == 3 then -- Parse a CHANNEL-ERASE command
 				self.g.chanerase = s == 1
+				if self.g.move and self.g.chanerase then -- If the MOVE and CHANERASE buttons are both held, move the seq to a higher absolute-slot
+					self:moveGrooveSeq(1) -- Move the sequence to a greater position
+				end
 			elseif x == 4 then -- Parse an ERASE command
 				self.g.erase = s == 1
 			else -- Parse a GATE command
@@ -138,21 +154,6 @@ return {
 				self:queueGUI("sendGrooveCommandKeys")
 			end
 
-		end
-
-		-- Check for all non-bottom-row command-buttons
-		if (y == (self.gridy - 7)) and (x == self.gridx) then -- If this is the rightmost button in the top row...
-			self.g.moveup = s == 1
-			self:queueGUI("sendGrooveCommandKeys")
-			if s == 1 then
-				self:moveGrooveSeq(-1) -- Move the sequence to a lesser position
-			end
-		elseif (y == (self.gridy - 6)) and (x == self.gridx) then -- If this is the rightmost button on the second-from-top row...
-			self.g.movedown = s == 1
-			self:queueGUI("sendGrooveCommandKeys")
-			if s == 1 then
-				self:moveGrooveSeq(1) -- Move the sequence to a greater position
-			end
 		end
 
 	end,

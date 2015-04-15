@@ -10,13 +10,17 @@ return {
 			self.page = math.ceil(self.g.seqnum / (self.gridy * 2))
 
 			-- Untoggle whatever Groove Mode command-buttons might be being pressed
-			self.g.track = false
+			self.g.move = false
 			self.g.rec = false
+			self.g.recheld = false
 			self.g.chanerase = false
 			self.g.erase = false
 			self.g.gate = false
-			self.g.moveup = false
-			self.g.movedown = false
+
+			-- Unset all pitch-keypress data
+			for k, v in pairs(self.g.pitch) do
+				self.g.pitch[k] = numToBools(0, false, 1, self.gridx)
+			end
 
 		else -- If toggling into Groove Mode...
 
@@ -88,13 +92,18 @@ return {
 
 		local cmd = {...}
 
-		-- If this is a NOTE command, apply random humanization to its velocity
-		if cmd[1] == 144 then
-			cmd[3] = math.max(1, math.min(127, cmd[3] + roundNum((math.random() * self.g.humanizenum) - (self.g.humanizenum / 2))))
+		-- If this is a NOTE command, and velorand is toggled, apply a random velocity
+		if (cmd[1] == 144) and self.g.velorand then
+			cmd[3] = math.random(1, self.g.velonum)
 		end
 
+		local beat = self.tpq * 4
+		local q1 = self.g.quantnum + 1
+		local quant = math.max(1, roundNum(beat / q1))
+		local dur = math.ceil((beat / q1) / (self.g.durnum + 1))
+
 		table.insert(cmd, 1, self.g.channum) -- Put the channel-number into the command's first index
-		table.insert(cmd, self.g.durnum) -- Put the duration-number into the command's last index
+		table.insert(cmd, dur) -- Put the duration-number into the command's last index
 
 		self:noteParse(cmd) -- Send an example-note, regardless of whether recording is enabled
 
@@ -107,11 +116,10 @@ return {
 			local p = self.seq[s].pointer
 			local pminus = p - 1
 			local tot = self.seq[s].total
-			local chunk = self.g.quantnum
-			local lessamt = pminus % chunk
-			local moreamt = chunk - lessamt
+			local lessamt = pminus % quant
+			local moreamt = quant - lessamt
 			local dist = ((moreamt < lessamt) and moreamt) or -lessamt
-			local t = (((p + dist) - 1) % tot) + 1
+			local t = wrapNum(p + dist, 1, tot)
 
 			-- Build the tick's table, if it's nil
 			self.seq[s].tick[t] = self.seq[s].tick[t] or {}
@@ -138,7 +146,7 @@ return {
 			pd.post("seq "..s)
 			pd.post("pointer "..p)
 			pd.post("total "..tot)
-			pd.post("chunk-size"..chunk)
+			pd.post("chunk-size"..quant)
 			pd.post("lessamt "..lessamt)
 			pd.post("moreamt "..moreamt)
 			pd.post("dist "..dist)
@@ -148,9 +156,12 @@ return {
 
 	end,
 
-	-- Insert the current Groove Mode note, built from Groove Mode's current default values (non-incoming-MIDI-triggered)
-	insertDefaultGrooveNote = function(self)
-		self:insertGrooveNote(144, self.g.pitchnum, self.g.velonum)
+	-- Insert the current Groove Mode note, built from a Groove Mode pitch keypress (non-incoming-MIDI-triggered)
+	insertDefaultGrooveNote = function(self, x, y)
+		local obase = self.g.octavenum * 12
+		local offset = ((x - 1) * 2) + (2 - y)
+		local pitch = wrapNum(obase + offset, 0, 127)
+		self:insertGrooveNote(144, pitch, self.g.velonum)
 	end,
 
 	-- Clear notes from the tick if any of the Groove Mode erase-commands are active

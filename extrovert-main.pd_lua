@@ -108,42 +108,43 @@ function Extrovert:initialize(sel, atoms)
 	end
 
 	self.g = { -- All groove mode flags and binary-value tables
-		pitch = {}, -- Note pitch (binary value, 8 bits, limit of 127)
-		pitchnum = 40,
-		velo = {}, -- Note velocity (binary value, 8 bits, limit of 127)
+		velo = {}, -- Note velocity
 		velonum = 127,
-		dur = {}, -- Note duration (binary value, 8+ bits, no limit)
-		durnum = 24,
-		chan = {}, -- MIDI channel (binary value, 4 bits, limit of 15)
+		octave = {}, -- Octave number
+		octavenum = 3,
+		dur = {}, -- Note duration
+		durnum = 15,
+		chan = {}, -- MIDI channel
 		channum = 0,
-		humanize = {}, -- Humanize amount (binary value, 4 bits, 16-128)
-		humanizenum = 0,
-		len = {}, -- Track length (len * tpq * 4) (binary value, 8 bits, limit of 128)
+		len = {}, -- Track length (len * tpq * 4)
 		lennum = 1,
-		seq = {}, -- Sequence number (binary value, 8+ bits, limit of self.gridx*(self.gridy-2))
+		seq = {}, -- Sequence number
 		seqnum = 1,
-		quant = {}, -- Quantize amount (binary value, 8+ bits, fixed as max(1,round((tpq*4)/q)))
-		quantnum = 1,
-		track = false, -- Flag for: is "track/test note" button being pressed?
+		quant = {}, -- Quantize amount
+		quantnum = 0,
+		pitch = { -- Holds all keypresses on both rows of pitch-keys
+			{bool = {}, num = 0},
+			{bool = {}, num = 0},
+		},
+		velorand = false, -- Flag for: randomize velocity values within current velonum-limit?
+		move = false, -- Flag for: is "move sequence to absolute slot" button being pressed?
 		rec = false, -- Flag for: recording new notes enabled? (toggle button)
+		recheld = false, -- Flag for: is the rec-button being held?
 		chanerase = false, -- Flag for: erasing notes only in the active channel ofthe active sequence
 		erase = false, -- Flag for: currently erasing notes in the active sequence as it plays through? (press-and-hold button)
-		moveup = false, -- Flag for: is "move sequence to lesser index" button being pressed?
-		movedown = false, -- Flag for: is "move sequence to greater index" button being pressed?
 		gate = false, -- Flag for: is a GATE button being pressed?
 	}
-	self.g.pitch = numToBools(self.g.pitchnum, false, 1, 8)
-	self.g.velo = numToBools(self.g.velonum, false, 1, 8)
-	self.g.dur = numToBools(self.g.durnum, false, 1, 8)
-	self.g.chan = numToBools(self.g.channum, true, 1, 4)
-	self.g.humanize = numToBools(self.g.humanizenum, false, 1, 4)
+	self.g.pitch[1].bool = numToBools(0, false, 1, 8)
+	self.g.pitch[2].bool = numToBools(0, false, 1, 8)
+	self.g.velo = numToBools(self.g.velonum, false, 1, 7)
+	self.g.octave = numToBools(self.g.octavenum, false, 1, 4)
+	self.g.dur = numToBools(self.g.durnum, false, 1, 4)
+	self.g.chan = numToBools(self.g.channum, false, 1, 4)
 	self.g.len = numToBools(self.g.lennum, false, 1, 8)
 	self.g.seq = numToBools(self.g.seqnum, false, 1, 8)
-	self.g.quant = numToBools(self.g.quantnum, false, 1, 8)
+	self.g.quant = numToBools(self.g.quantnum, false, 1, 4)
 
-	self.g.dur[1] = true
 	self.g.seq[1] = true
-	self.g.quant[1] = true
 
 	self.groove = false -- Tracks whether Groove Mode is toggled or not.
 	self.overview = false -- Tracks whether Overview Mode is toggled or not.

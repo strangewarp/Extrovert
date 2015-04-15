@@ -307,7 +307,9 @@ return {
 		self.seq[i].tick = {} -- Holds all notes in the sequence
 		self.seq[i].metatick = {} -- Holds a modified dupliate of the .tick table, to use when SCATTER is active
 
-		self.seq[i].total = self.gridx -- Total number of ticks in the sequence
+		local beat = self.tpq * 4
+
+		self.seq[i].total = (((beat % self.gridx) == 0) and beat) or (self.gridx * self.tpq) -- Total number of ticks in the sequence
 		
 		pd.post("Reset all flags and notes in sequence " .. i)
 
