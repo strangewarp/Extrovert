@@ -1,15 +1,4 @@
 
--- Update all GUI changes, including full big-endianness
-	. Remove humanization
-	. Note-entry keys ("p")
-	. Random-velocity-toggle key ("r")
-	. Octave keys ("o")
-	. Hold-to-move-absolute-slot key ("M") and its chords ("R" lower, "C" higher).
-		> Replace old absolute-swap mechanism
-	. Update all boundaries for all values
-	. Change quantization mechanism to round(beat/q)
-	. Change duration mechanism to ceil((beat/q)/d)
-
 -- Make "Save" and "Load" buttons on the Pd canvas less accident-prone
 
 -- Test:
