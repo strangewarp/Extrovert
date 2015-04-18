@@ -1,5 +1,15 @@
 
+TODO:
+
 -- Make "Save" and "Load" buttons on the Pd canvas less accident-prone
+
+-- Add MIDI CLOCK SLAVE
+	. Filter metronome ticks based on self.slave value
+	. Add a [midirealtimein] object to the metronome canvas
+
+-- Add MIDI THRU
+	DONE: . If self.thru: shunt all MIDI-IN messages directly to the MIDI-OUT apparatus
+	. If self.clockthru: shunt all [midirealtimein] CLOCK messages to [midiout]
 
 -- Test:
 	. MIDI-IN

@@ -87,6 +87,11 @@ function Extrovert:initialize(sel, atoms)
 	for k, _ in pairs(self.adc) do
 		self.dial[k] = 0.5 -- Set default values for ADC dials
 	end
+
+	self.slave = self.prefs.midi.slave
+	self.thru = self.prefs.midi.thru
+	self.clockthru = self.prefs.midi.clockthru
+	self.loopticks = self.midi.loopticks or false
 	
 	self.kb = {} -- Keeps track of which keys are currently pressed on the computer-keyboard
 
@@ -281,7 +286,12 @@ end
 -- Catch an incoming command from an external MIDI device
 function Extrovert:in_6_list(t)
 
-	-- If not in Groove Mode, ignore incoming MIDI
+	-- If MIDI THRU is enabled, perform a soft-thru operation with the raw noteSend function
+	if self.thru then
+		self:noteSend(t)
+	end
+
+	-- If not in Groove Mode, finish parsing MIDI-IN
 	if not self.groove then
 		return nil
 	end

@@ -14,7 +14,7 @@ return {
 	-- Send the binary counting buttons for current tick position as related to GATE values
 	sendGateCountButtons = function(self)
 
-		local bound = self.seq[(self.groove and self.g.seqnum) or 1].total
+		local bound = ((not self.groove) and self.loopticks) or self.seq[(self.groove and self.g.seqnum) or 1].total
 
 		-- Get the offset position of the last binary-counting button
 		local offset = 0

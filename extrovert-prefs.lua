@@ -40,6 +40,18 @@ return {
 		
 	},
 
+	midi = { -- MIDI options
+
+		slave = true, -- If true, sync Extrovert's clock to external MIDI CLOCK pulses.
+
+		thru = true, -- If true, resend all incoming MIDI messages that are not MIDI CLOCK ticks.
+
+		clockthru = true, -- If true, resend all incoming MIDI CLOCK messages.
+
+		gateloop = 192, -- Number of ticks in the loop for the global GATE-counter. Must be a multiple of grid-width. If false, defaults to ticks in top sequence.
+
+	},
+
 	monome = {
 	
 		height = 8, -- Monome height (in buttons)

@@ -10,7 +10,7 @@ return {
 		end
 
 		-- If the global tick doesn't correspond to a sequence's incoming GATE size, then there is no match, so return false
-		local bound = self.seq[(self.groove and self.g.seqnum) or 1].total
+		local bound = ((not self.groove) and self.loopticks) or self.seq[(self.groove and self.g.seqnum) or 1].total
 		local curgate = math.floor(self.gridx * (self.tick / bound))
 		local longchunk = bound / self.gridx
 		local tickmatch = (self.tick - 1) % longchunk
@@ -27,7 +27,7 @@ return {
 	-- Cycle through all MIDI commands on the active tick within every active sequence
 	iterateAllSequences = function(self)
 
-		local bound = self.seq[(self.groove and self.g.seqnum) or 1].total -- Get current boundary for sequence-looping
+		local bound = ((not self.groove) and self.loopticks) or self.seq[(self.groove and self.g.seqnum) or 1].total -- Get current boundary for sequence-looping
 
 		self.tick = (self.tick % bound) + 1 -- Increment global tick, bounded by global gate-size
 

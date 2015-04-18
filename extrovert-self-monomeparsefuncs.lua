@@ -197,7 +197,7 @@ return {
 
 				-- If a "change global gate" command is given, advance the global gate-value by the gate-button value.
 				if self.slice.off and self.slice.swap then
-					local limit = self.seq[1].total
+					local limit = self.loopticks or self.seq[1].total
 					self.tick = (((self.tick + ((limit / self.gridx) * key)) - 1) % limit) + 1
 				else -- Else, if this is a regular gate-button-press...
 					self.slice.gate = key -- Set the GATE command to the corresponding key-value
